@@ -19,7 +19,8 @@ import {
   Loader2,
   User,
   ShoppingBag,
-  ShieldCheck // ✅ Importamos el icono para el Admin
+  ShieldCheck,
+  Truck 
 } from "lucide-react"
 
 export default function HomePage() {
@@ -123,7 +124,7 @@ export default function HomePage() {
 
                       <div className="p-2 space-y-1">
                         
-                        {/* ✅ AQUI AGREGAMOS EL BOTÓN DE ADMIN QUE FALTABA */}
+                        {/* 🔒 BOTÓN ADMIN */}
                         {user?.rol === "Administrador" && (
                           <Link 
                             href="/dashboard/admin" 
@@ -134,6 +135,20 @@ export default function HomePage() {
                                 <ShieldCheck className="w-4 h-4 text-[#D32F2F]" />
                             </div>
                             Panel Admin
+                          </Link>
+                        )}
+
+                        {/* 🚚 BOTÓN BODEGUERO */}
+                        {user?.rol === "Bodeguero" && (
+                          <Link 
+                            href="/dashboard/bodeguero/pedidos" 
+                            className="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-[#D32F2F] bg-red-50 hover:bg-red-100 rounded-lg transition-colors mb-1"
+                            onClick={() => setIsUserMenuOpen(false)}
+                          >
+                            <div className="bg-white p-1.5 rounded-md shadow-sm">
+                                <Truck className="w-4 h-4 text-[#D32F2F]" />
+                            </div>
+                            Panel Bodega
                           </Link>
                         )}
                         {/* ------------------------------------------------ */}
@@ -228,7 +243,8 @@ export default function HomePage() {
                   </Link>
               ) : (
                 <>
-                  <Link href="/dashboard/solicitar">
+                  {/* ✅ ENLACE CORREGIDO: Apunta a la ruta real */}
+                  <Link href="/dashboard/solicitante/pedidos/nuevo">
                      <Button size="lg" className="h-16 px-8 text-lg rounded-2xl shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 w-full sm:w-auto bg-white text-slate-900 hover:bg-slate-100 font-bold group flex items-center gap-3">
                       <div className="bg-slate-100 p-2 rounded-lg group-hover:bg-slate-200 transition-colors">
                         <ClipboardList className="h-6 w-6 text-[#D32F2F]" />
@@ -341,7 +357,6 @@ export default function HomePage() {
 
         <div className="py-6 text-center text-xs text-gray-500 border-t border-[#333333]" style={{ backgroundColor: '#111111' }}>
           <div className="container mx-auto px-4 flex justify-between items-center">
-            {/* ✅ CORRECCIÓN DE ERROR TYPESCRIPT: 'globalThis.Date' */}
             <span>© {new globalThis.Date().getFullYear()} ByG Ingeniería. Todos los derechos reservados.</span>
             <span className="opacity-50">Plataforma Interna</span>
           </div>
