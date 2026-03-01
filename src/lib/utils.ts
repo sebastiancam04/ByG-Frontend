@@ -1,3 +1,4 @@
+// ARCHIVO: src/lib/utils.ts
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
@@ -5,15 +6,13 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// ✅ NUEVO: Función para formatear fechas a Chile (Con corrección de UTC)
+// Función para formatear fechas a Chile (Con corrección de UTC)
 export function formatDate(dateString: string | Date) {
   if (!dateString) return "---";
   
   let dateToParse = dateString;
 
-  // Si es un texto y no tiene indicador de zona ('Z' o offset), le agregamos 'Z' para tratarlo como UTC
   if (typeof dateString === 'string') {
-    // Detectar si falta la zona horaria (formato simple "YYYY-MM-DDTHH:mm:ss")
     if (!dateString.includes('Z') && !dateString.includes('+') && !/-\d{2}:\d{2}/.test(dateString)) {
         dateToParse = dateString + 'Z';
     }
@@ -21,7 +20,6 @@ export function formatDate(dateString: string | Date) {
 
   const date = new Date(dateToParse);
   
-  // Forzamos la zona horaria de Chile
   return new Intl.DateTimeFormat("es-CL", {
     day: "2-digit",
     month: "short",
@@ -31,4 +29,12 @@ export function formatDate(dateString: string | Date) {
     hour12: false,
     timeZone: "America/Santiago" 
   }).format(date);
+}
+
+// Función para formatear el dinero
+export function formatMoney(amount: number) {
+  return new Intl.NumberFormat("es-CL", {
+    style: "currency",
+    currency: "CLP",
+  }).format(amount);
 }
