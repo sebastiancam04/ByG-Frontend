@@ -1,362 +1,416 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { useForm } from "react-hook-form"
-import { toast } from "sonner"
-import axios from "axios"
-import { 
-  Users, 
-  ArrowLeft, 
-  Trash2, 
-  Plus, 
-  Loader2, 
-  UserCheck, 
-  UserX,
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { toast } from "sonner";
+import {
+  Loader2,
+  Plus,
   Pencil,
-  AlertTriangle 
-} from "lucide-react"
+  Trash2,
+  ArrowLeft,
+  Search,
+  ShieldAlert,
+  CheckCircle2,
+  XCircle
+} from "lucide-react";
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
-import { usersService } from "@/services/users.service"
-import { User, CreateUserDto } from "@/types/users"
+import { usersService } from "@/services/users.service";
+import { User, CreateUserDto } from "@/types/users";
+import { useAuthStore } from "@/stores/auth.store";
+
+// --- ESQUEMA DE VALIDACIÓN (ZOD) ---
+const userSchema = z.object({
+  nombres: z.string().min(2, "El nombre es obligatorio"),
+  apellidos: z.string().min(2, "El apellido es obligatorio"),
+  correo: z.string().email("Correo inválido"),
+  rol: z.string().min(1, "Selecciona un rol"),
+  // Password es opcional (string o undefined)
+  password: z.string().optional(),
+  // Activo es boolean estricto (el default lo maneja el useForm)
+  activo: z.boolean(),
+});
+
+type UserFormValues = z.infer<typeof userSchema>;
 
 export default function UsuariosPage() {
-  const router = useRouter()
-  const [users, setUsers] = useState<User[]>([])
-  const [loading, setLoading] = useState(true)
+  const router = useRouter();
+  const { user: currentUser } = useAuthStore();
   
-  // Estados
-  const [showCreateForm, setShowCreateForm] = useState(false)
-  const [processing, setProcessing] = useState(false)
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [userToDelete, setUserToDelete] = useState<number | null>(null)
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<CreateUserDto>()
+  // Formulario con React Hook Form
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<UserFormValues>({
+    resolver: zodResolver(userSchema),
+    // Valores por defecto iniciales
+    defaultValues: {
+      nombres: "",
+      apellidos: "",
+      correo: "",
+      rol: "Solicitante",
+      activo: true,
+      password: "",
+    },
+  });
 
-  // 1. Cargar Usuarios
+  // Cargar usuarios al montar
   const fetchUsers = async () => {
+    setLoading(true);
     try {
-      const data = await usersService.getAll()
-      setUsers(data)
+      const data = await usersService.getAll();
+      setUsers(data);
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
-        toast.error("Sesión expirada")
-        router.push("/login")
-        return
-      }
-      toast.error("Error al cargar usuarios")
+      console.error(error);
+      toast.error("Error al cargar usuarios");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchUsers()
-  }, [])
+    fetchUsers();
+  }, []);
 
-  // 2. Guardar (Crear/Editar)
-  const onSubmit = async (data: CreateUserDto) => {
-    setProcessing(true)
-    try {
-      if (editingId) {
-        await usersService.update(editingId, data)
-        toast.success("Usuario actualizado correctamente")
-      } else {
-        await usersService.create(data)
-        toast.success("Usuario creado exitosamente")
-      }
-      resetForm()
-      fetchUsers()
-    } catch (error) {
-      let mensaje = "Error en la operación";
-      if (axios.isAxiosError(error) && error.response?.data?.mensaje) {
-        mensaje = error.response.data.mensaje;
-      }
-      toast.error(mensaje)
-    } finally {
-      setProcessing(false)
-    }
-  }
+  // Abrir modal para crear
+  const handleCreate = () => {
+    setEditingId(null);
+    reset({ 
+      nombres: "", 
+      apellidos: "", 
+      correo: "", 
+      rol: "Solicitante", 
+      activo: true, 
+      password: "" 
+    });
+    setIsDialogOpen(true);
+  };
 
+  // Abrir modal para editar
   const handleEdit = (user: User) => {
-    setEditingId(user.id)
-    setShowCreateForm(true)
-    setValue("nombres", user.nombres)
-    setValue("apellidoPaterno", user.apellidoPaterno)
-    setValue("apellidoMaterno", user.apellidoMaterno)
-    setValue("rut", user.rut)
-    setValue("correo", user.correo)
-    setValue("telefono", user.telefono || "")
-    setValue("rol", user.rol)
-    setValue("password", "")
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
+    setEditingId(user.id);
+    setValue("nombres", user.nombres);
+    setValue("apellidos", user.apellidos);
+    setValue("correo", user.correo);
+    setValue("rol", user.rol);
+    setValue("activo", user.activo);
+    setValue("password", ""); // Reset password field
+    setIsDialogOpen(true);
+  };
 
-  const resetForm = () => {
-    setEditingId(null)
-    setShowCreateForm(false)
-    reset()
-  }
-
-  // 3. Eliminar (Solicitar)
-  const requestDelete = (id: number) => {
-    setUserToDelete(id)
-  }
-
-  // 4. Eliminar (Confirmar)
-  const confirmDelete = async () => {
-    if (!userToDelete) return;
-
+  // Guardar (Crear o Editar)
+  // Quitamos el tipo explícito para que TS infiera correctamente desde el handleSubmit
+  const onSubmit = async (data: UserFormValues) => {
     try {
-      await usersService.delete(userToDelete)
-      toast.success("Usuario desactivado")
-      fetchUsers()
+      const payload: CreateUserDto = {
+        nombres: data.nombres,
+        apellidos: data.apellidos,
+        correo: data.correo,
+        rol: data.rol,
+        activo: data.activo,
+        // Si el password está vacío, enviamos undefined para que el backend lo ignore
+        password: data.password || undefined,
+      };
+
+      if (editingId) {
+        await usersService.update(editingId, payload);
+        toast.success("Usuario actualizado correctamente");
+      } else {
+        if (!data.password) {
+          toast.error("La contraseña es obligatoria para nuevos usuarios");
+          return;
+        }
+        await usersService.create(payload);
+        toast.success("Usuario creado correctamente");
+      }
+
+      setIsDialogOpen(false);
+      fetchUsers();
     } catch (error) {
-      toast.error("No se pudo desactivar")
-    } finally {
-      setUserToDelete(null)
+      console.error("Error submit:", error);
+      toast.error("Error al guardar usuario. Revisa si el correo ya existe.");
     }
-  }
+  };
+
+  // Eliminar usuario
+  const handleDelete = async (id: number) => {
+    if (!confirm("¿Estás seguro de eliminar este usuario? Esta acción no se puede deshacer.")) return;
+    
+    try {
+      await usersService.delete(id);
+      toast.success("Usuario eliminado");
+      fetchUsers();
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo eliminar el usuario");
+    }
+  };
+
+  // Filtrado simple
+  const filteredUsers = users.filter(
+    (u) =>
+      u.nombres.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.apellidos.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.correo.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-         <Loader2 className="h-8 w-8 animate-spin text-[#D32F2F]" />
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[#D32F2F]" />
       </div>
-    )
+    );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8 pt-24 font-sans relative">
-      
-      {/* --- MODAL DE CONFIRMACIÓN (CORREGIDO) --- */}
-      {userToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 p-4">
-          <Card className="w-full max-w-sm shadow-2xl border-0 scale-100 animate-in zoom-in-95 duration-200">
-            <CardHeader className="text-center pb-2">
-              <div className="mx-auto bg-red-100 p-3 rounded-full w-fit mb-4">
-                <AlertTriangle className="h-8 w-8 text-red-600" />
-              </div>
-              <CardTitle className="text-lg font-bold">¿Desactivar Usuario?</CardTitle>
-              <CardDescription className="text-sm mt-2">
-                Esta acción quitará el acceso al sistema a este usuario inmediatamente.
-              </CardDescription>
-            </CardHeader>
-            {/* ✅ AQUÍ ESTÁ EL ARREGLO: flex-1 en lugar de w-full */}
-            <CardFooter className="flex gap-3 pt-4">
-              <Button 
-                variant="outline" 
-                onClick={() => setUserToDelete(null)}
-                className="flex-1" // Ocupa el 50%
-              >
-                Cancelar
-              </Button>
-              <Button 
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white" // Ocupa el otro 50%
-                onClick={confirmDelete}
-              >
-                Sí, Desactivar
-              </Button>
-            </CardFooter>
-          </Card>
-        </div>
-      )}
-
-      {/* CONTENIDO PRINCIPAL */}
+    <div className="min-h-screen bg-slate-50 p-8 pt-24 font-sans">
       <div className="container mx-auto max-w-6xl space-y-6">
         
         {/* ENCABEZADO */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-extrabold text-slate-900 flex items-center gap-3">
-              <Users className="h-8 w-8 text-[#D32F2F]" />
+              <ShieldAlert className="h-8 w-8 text-[#D32F2F]" />
               Gestión de Usuarios
             </h1>
             <p className="text-slate-500 mt-1">
-              Administra el personal con acceso a la plataforma.
+              Administra el personal, sus roles y accesos al sistema.
             </p>
           </div>
-          <div className="flex gap-3">
-             <Link href="/dashboard/admin">
-                <Button variant="outline" className="gap-2">
-                <ArrowLeft className="w-4 h-4" /> Volver
-                </Button>
-            </Link>
-            <Button 
-                className={editingId ? "bg-blue-600 hover:bg-blue-700 gap-2" : "bg-[#D32F2F] hover:bg-red-700 gap-2"}
-                onClick={() => {
-                    if(showCreateForm) resetForm();
-                    else setShowCreateForm(true);
-                }}
-            >
-                {showCreateForm ? <UserX className="w-4 h-4" /> : <Plus className="w-4 h-4" />} 
-                {showCreateForm ? "Cancelar" : "Nuevo Usuario"}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => router.back()} className="gap-2">
+              <ArrowLeft className="w-4 h-4" /> Volver
+            </Button>
+            <Button onClick={handleCreate} className="bg-[#D32F2F] hover:bg-red-700 text-white gap-2">
+              <Plus className="w-4 h-4" /> Nuevo Usuario
             </Button>
           </div>
         </div>
 
-        {/* FORMULARIO */}
-        {showCreateForm && (
-            <Card className={`animate-in slide-in-from-top-4 border-l-4 ${editingId ? 'border-l-blue-500' : 'border-l-[#D32F2F]'}`}>
-                <CardHeader>
-                    <CardTitle>{editingId ? "Editar Usuario Existente" : "Registrar Nuevo Personal"}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label>Nombres</Label>
-                            <Input {...register("nombres", { required: true })} />
-                            {errors.nombres && <span className="text-red-500 text-xs">Requerido</span>}
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Apellido Paterno</Label>
-                            <Input {...register("apellidoPaterno", { required: true })} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Apellido Materno</Label>
-                            <Input {...register("apellidoMaterno", { required: true })} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>RUT</Label>
-                            <Input {...register("rut", { required: true })} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Correo Corporativo</Label>
-                            <Input type="email" {...register("correo", { required: true })} />
-                        </div>
-                         <div className="space-y-2">
-                            <Label>Teléfono</Label>
-                            <Input {...register("telefono")} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>
-                                Contraseña 
-                                {editingId && <span className="text-xs text-slate-400 font-normal ml-2">(Dejar en blanco para mantener)</span>}
-                            </Label>
-                            <Input 
-                                type="password" 
-                                {...register("password", { required: !editingId, minLength: 6 })} 
-                                placeholder={editingId ? "********" : "Mínimo 6 caracteres"}
-                            />
-                            {errors.password && <span className="text-red-500 text-xs">Requerido (Mín. 6)</span>}
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Rol</Label>
-                            <select 
-                                {...register("rol", { required: true })}
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        {/* CONTENIDO PRINCIPAL */}
+        <Card className="border-t-4 border-t-[#D32F2F] shadow-lg">
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-2 border rounded-md px-3 py-2 w-full max-w-sm bg-slate-50">
+              <Search className="w-4 h-4 text-slate-400" />
+              <input
+                placeholder="Buscar por nombre o correo..."
+                className="bg-transparent border-none outline-none text-sm w-full"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border overflow-hidden">
+              <Table>
+                <TableHeader className="bg-slate-100">
+                  <TableRow>
+                    <TableHead>Usuario</TableHead>
+                    <TableHead>Rol</TableHead>
+                    <TableHead className="text-center">Estado</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredUsers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-8 text-slate-500">
+                        No se encontraron usuarios.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredUsers.map((user) => (
+                      <TableRow key={user.id} className="hover:bg-slate-50">
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-slate-900">
+                              {user.nombres} {user.apellidos}
+                            </span>
+                            <span className="text-xs text-slate-500">{user.correo}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="font-normal bg-slate-50">
+                            {user.rol}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {user.activo ? (
+                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">
+                              <CheckCircle2 className="w-3 h-3 mr-1" /> Activo
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-red-200">
+                              <XCircle className="w-3 h-3 mr-1" /> Inactivo
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              onClick={() => handleEdit(user)}
                             >
-                                <option value="">Seleccione...</option>
-                                <option value="Solicitante">Solicitante</option>
-                                <option value="Bodeguero">Bodeguero</option>
-                                <option value="Administrador">Administrador</option>
-                            </select>
-                        </div>
-                        <div className="md:col-span-2 flex justify-end mt-4 gap-2">
-                            <Button type="button" variant="ghost" onClick={resetForm}>Cancelar</Button>
-                            <Button 
-                                type="submit" 
-                                className={editingId ? "bg-blue-600 hover:bg-blue-700" : "bg-slate-900 hover:bg-slate-800"} 
-                                disabled={processing}
-                            >
-                                {processing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                                {editingId ? "Actualizar Usuario" : "Guardar Usuario"}
+                              <Pencil className="w-4 h-4" />
                             </Button>
-                        </div>
-                    </form>
-                </CardContent>
-            </Card>
-        )}
-
-        {/* TABLA */}
-        <Card>
-            <CardContent className="p-0 overflow-hidden">
-                <div className="w-full overflow-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="text-slate-500 bg-slate-50 border-b">
-                            <tr>
-                                <th className="h-12 px-4 font-medium align-middle">Nombre Completo</th>
-                                <th className="h-12 px-4 font-medium align-middle">RUT</th>
-                                <th className="h-12 px-4 font-medium align-middle">Correo</th>
-                                <th className="h-12 px-4 font-medium align-middle">Rol</th>
-                                <th className="h-12 px-4 font-medium align-middle">Estado</th>
-                                <th className="h-12 px-4 font-medium align-middle text-right">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody className="[&_tr:last-child]:border-0">
-                            {users.map((user) => (
-                                <tr key={user.id} className={`border-b transition-colors hover:bg-slate-50/50 ${editingId === user.id ? 'bg-blue-50' : ''}`}>
-                                    <td className="p-4 align-middle font-medium">
-                                        {user.nombres} {user.apellidoPaterno} {user.apellidoMaterno}
-                                    </td>
-                                    <td className="p-4 align-middle">{user.rut}</td>
-                                    <td className="p-4 align-middle">{user.correo}</td>
-                                    <td className="p-4 align-middle">
-                                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold
-                                            ${user.rol === 'Administrador' ? 'bg-red-100 text-red-700' : 
-                                              user.rol === 'Bodeguero' ? 'bg-orange-100 text-orange-700' : 
-                                              'bg-blue-100 text-blue-700'}`}>
-                                            {user.rol}
-                                        </span>
-                                    </td>
-                                    <td className="p-4 align-middle">
-                                        {user.activo ? (
-                                            <div className="flex items-center gap-1 text-green-600 text-xs font-bold">
-                                                <UserCheck className="w-3 h-3" /> Activo
-                                            </div>
-                                        ) : (
-                                            <div className="flex items-center gap-1 text-slate-400 text-xs font-bold">
-                                                <UserX className="w-3 h-3" /> Inactivo
-                                            </div>
-                                        )}
-                                    </td>
-                                    <td className="p-4 align-middle text-right">
-                                        {user.activo && (
-                                            <div className="flex justify-end gap-1">
-                                                <Button 
-                                                    variant="ghost" 
-                                                    size="icon" 
-                                                    className="h-8 w-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                                                    onClick={() => handleEdit(user)}
-                                                    title="Editar Usuario"
-                                                >
-                                                    <Pencil className="w-4 h-4" />
-                                                </Button>
-                                                
-                                                <Button 
-                                                    variant="ghost" 
-                                                    size="icon" 
-                                                    className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                                    onClick={() => requestDelete(user.id)} 
-                                                    title="Desactivar Usuario"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                            {users.length === 0 && !loading && (
-                                <tr>
-                                    <td colSpan={6} className="p-4 text-center text-slate-500 h-24">
-                                        No se encontraron usuarios.
-                                    </td>
-                                </tr>
+                            {/* Evitar borrarse a uno mismo */}
+                            {currentUser?.email !== user.correo && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => handleDelete(user.id)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
                             )}
-                        </tbody>
-                    </table>
-                </div>
-            </CardContent>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
         </Card>
 
+        {/* MODAL CREAR / EDITAR */}
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="sm:max-w-lg bg-white">
+            <DialogHeader>
+              <DialogTitle>{editingId ? "Editar Usuario" : "Crear Nuevo Usuario"}</DialogTitle>
+              <DialogDescription>
+                {editingId
+                  ? "Modifica los datos del usuario. Deja la contraseña vacía para mantener la actual."
+                  : "Completa el formulario para registrar un nuevo usuario en el sistema."}
+              </DialogDescription>
+            </DialogHeader>
+
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Nombres</Label>
+                  <Input {...register("nombres")} placeholder="Ej: Juan Andrés" />
+                  {errors.nombres && <p className="text-xs text-red-500">{errors.nombres.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label>Apellidos</Label>
+                  <Input {...register("apellidos")} placeholder="Ej: Pérez Cotapos" />
+                  {errors.apellidos && <p className="text-xs text-red-500">{errors.apellidos.message}</p>}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Correo Electrónico</Label>
+                <Input {...register("correo")} type="email" placeholder="usuario@byg.cl" />
+                {errors.correo && <p className="text-xs text-red-500">{errors.correo.message}</p>}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Rol</Label>
+                  <Select
+                    onValueChange={(val) => setValue("rol", val)}
+                    defaultValue={watch("rol")}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona un rol" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
+                      <SelectItem value="Administrador">Administrador</SelectItem>
+                      <SelectItem value="Bodeguero">Bodeguero</SelectItem>
+                      <SelectItem value="Solicitante">Solicitante</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {errors.rol && <p className="text-xs text-red-500">{errors.rol.message}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Estado</Label>
+                  <Select
+                    onValueChange={(val) => setValue("activo", val === "true")}
+                    defaultValue={watch("activo") ? "true" : "false"}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
+                      <SelectItem value="true">Activo</SelectItem>
+                      <SelectItem value="false">Inactivo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-2 border-t mt-2">
+                <Label className="flex items-center gap-2">
+                  Contraseña {editingId && <span className="text-xs font-normal text-slate-400">(Opcional)</span>}
+                </Label>
+                <Input
+                  {...register("password")}
+                  type="password"
+                  placeholder={editingId ? "••••••••" : "Mínimo 6 caracteres"}
+                />
+                {errors.password && <p className="text-xs text-red-500">{errors.password.message}</p>}
+              </div>
+
+              <DialogFooter className="pt-4">
+                <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" className="bg-[#D32F2F] hover:bg-red-700 text-white" disabled={isSubmitting}>
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Guardar Usuario"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
-  )
+  );
 }

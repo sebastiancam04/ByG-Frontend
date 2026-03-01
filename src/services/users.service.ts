@@ -1,39 +1,53 @@
-import axios from "axios";
-import { User, CreateUserDto, UpdateUserDto } from "@/types/users";
-import { useAuthStore } from "@/stores/auth.store";
+import { api } from "@/lib/axios"; // ✅ CORREGIDO
+import { User, CreateUserDto } from "@/types/users";
 
-// Asegúrate de que este puerto coincida con tu Backend (5064)
-const API_URL = "http://localhost:5064/api/users"; 
-
-const getAuthHeaders = () => {
-  const token = useAuthStore.getState().token;
-  return {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  };
-};
+// Interfaz auxiliar para lo que responde Identity (que a veces varía nombres)
+interface BackendUser {
+  id: number;
+  userName?: string;
+  nombres?: string;
+  apellidos?: string;
+  email?: string;
+  correo?: string;
+  rol?: string;
+  activo?: boolean;
+}
 
 export const usersService = {
-  // 1. Listar
-  getAll: async (): Promise<User[]> => {
-    const response = await axios.get(API_URL, getAuthHeaders());
-    return response.data;
+  // Obtener todos los usuarios
+  async getAll(): Promise<User[]> {
+    const { data } = await api.get<BackendUser[]>("/users");
+    
+    // Mapeo seguro sin 'any'
+    return data.map((u) => ({
+      id: u.id,
+      nombres: u.nombres || u.userName || "Sin Nombre",
+      apellidos: u.apellidos || "",
+      correo: u.email || u.correo || "",
+      rol: u.rol || "Solicitante",
+      activo: u.activo ?? true,
+    }));
   },
 
-  // 2. Crear
-  create: async (data: CreateUserDto): Promise<User> => {
-    const response = await axios.post(API_URL, data, getAuthHeaders());
-    return response.data;
+  // Obtener un usuario por ID
+  async getById(id: number): Promise<User> {
+    const { data } = await api.get<User>(`/users/${id}`);
+    return data;
   },
 
-  // 3. EDITAR (Nuevo)
-  update: async (id: number, data: UpdateUserDto): Promise<void> => {
-    await axios.put(`${API_URL}/${id}`, data, getAuthHeaders());
+  // Crear usuario
+  async create(user: CreateUserDto): Promise<User> {
+    const { data } = await api.post<User>("/users", user);
+    return data;
   },
 
-  // 4. Eliminar
-  delete: async (id: number): Promise<void> => {
-    await axios.delete(`${API_URL}/${id}`, getAuthHeaders());
-  }
+  // Actualizar usuario
+  async update(id: number, user: Partial<CreateUserDto>): Promise<void> {
+    await api.put(`/users/${id}`, user);
+  },
+
+  // Eliminar usuario
+  async delete(id: number): Promise<void> {
+    await api.delete(`/users/${id}`);
+  },
 };
