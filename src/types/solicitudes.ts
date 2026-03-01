@@ -1,7 +1,12 @@
-// Estados posibles según tu Enum en C#
-export type EstadoSolicitud = 'Pendiente' | 'Aprobada' | 'Rechazada' | 'En Preparación' | 'Entregada' | 'Finalizada';
+// ✅ Conectado: Exactamente igual al Enum del Backend
+export type EstadoSolicitud = 
+  | 'Pendiente' 
+  | 'EnRevision' 
+  | 'AprobadaBodega' 
+  | 'RequiereCompra' 
+  | 'Finalizada' 
+  | 'Rechazada';
 
-// 1. Resumen para la TABLA (Viene de SolicitudResponseDto)
 export interface SolicitudResumen {
   id: number;
   folio: number;
@@ -13,7 +18,6 @@ export interface SolicitudResumen {
   totalItems: number;
 }
 
-// 2. Detalle de un ítem (Viene de DetalleResponseDto)
 export interface DetalleItem {
   id: number;
   nombreMaterial: string;
@@ -25,11 +29,27 @@ export interface DetalleItem {
   esManual: boolean;
 }
 
-// 3. Solicitud Completa para el MODAL (Viene de SolicitudDetailResponseDto)
 export interface SolicitudDetalle extends SolicitudResumen {
   items: DetalleItem[];
 }
 
 export interface UpdateEstadoDto {
-  nuevoEstado: string; // Enviamos el string al backend
+  nuevoEstado: string; 
+}
+
+// 👇👇👇 AGREGAR ESTO AL FINAL 👇👇👇
+
+export interface CreateDetalleDto {
+  productoId: number | null;
+  cantidad: number;
+  temporalNombre?: string | null;
+  temporalCodigo?: string | null;
+  temporalUnidad?: string | null;
+  temporalTalla?: string | null;
+  observacion?: string | null; // ✅ NUEVO
+}
+
+export interface CreateSolicitudDto {
+  proyecto: string;
+  detalles: CreateDetalleDto[];
 }

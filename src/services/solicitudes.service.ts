@@ -1,35 +1,34 @@
-import axios from "axios";
-import { SolicitudResumen, SolicitudDetalle, UpdateEstadoDto } from "@/types/solicitudes";
-import { useAuthStore } from "@/stores/auth.store";
-
-// Asegúrate de que el puerto sea el correcto (5064 según tu backend)
-const API_URL = "http://localhost:5064/api/solicitudes";
-
-const getAuthHeaders = () => {
-  const token = useAuthStore.getState().token;
-  return {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  };
-};
+import { api } from "@/lib/axios";
+import {
+  SolicitudResumen,
+  SolicitudDetalle,
+  UpdateEstadoDto,
+  CreateSolicitudDto // ✅ Importamos la nueva interfaz
+} from "@/types/solicitudes";
 
 export const solicitudesService = {
-  // 1. Panel Bodega (Esta es la función que te estaba fallando)
+  // 1. Panel Bodega
   getAllBodega: async (): Promise<SolicitudResumen[]> => {
-    const response = await axios.get(`${API_URL}/bodega/todas`, getAuthHeaders());
-    return response.data;
+    const { data } = await api.get<SolicitudResumen[]>("/solicitudes/bodega/todas");
+    return data;
   },
 
   // 2. Ver Detalle con Items
   getById: async (id: number): Promise<SolicitudDetalle> => {
-    const response = await axios.get(`${API_URL}/${id}`, getAuthHeaders());
-    return response.data;
+    const { data } = await api.get<SolicitudDetalle>(`/solicitudes/${id}`);
+    return data;
   },
 
   // 3. Actualizar Estado
   updateEstado: async (id: number, estado: string): Promise<void> => {
-    const data: UpdateEstadoDto = { nuevoEstado: estado };
-    await axios.patch(`${API_URL}/${id}/estado`, data, getAuthHeaders());
-  }
+    const payload: UpdateEstadoDto = { nuevoEstado: estado };
+    await api.patch(`/solicitudes/${id}/estado`, payload);
+  },
+
+  // 4. Crear nueva solicitud (Solicitante)
+  // ✅ CORREGIDO: Reemplazamos 'any' por 'CreateSolicitudDto'
+  create: async (payload: CreateSolicitudDto) => {
+    const { data } = await api.post("/solicitudes", payload);
+    return data;
+  },
 };

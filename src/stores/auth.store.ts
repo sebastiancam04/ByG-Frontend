@@ -1,38 +1,49 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { LoginResponseDto, UsuarioDto } from '@/types/auth';
-
-interface AuthState {
-  token: string | null;
-  user: UsuarioDto | null;
-  isAuthenticated: boolean;
-  login: (data: LoginResponseDto) => void;
-  logout: () => void;
-}
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { AuthState, LoginResponse, User } from "@/types/auth";
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      token: null,
       user: null,
+      token: null,
       isAuthenticated: false,
-      login: (data) => {
-        console.log("💾 GUARDANDO EN STORE:", data.usuario); // Debug para ver qué se guarda
-        set({ 
-          token: data.token, 
-          user: data.usuario, 
-          isAuthenticated: true 
+
+      login: (response: LoginResponse) => {
+        // Guardamos tokens
+        localStorage.setItem("token", response.token);
+        localStorage.setItem("refreshToken", response.refreshToken);
+
+        // Creamos el objeto usuario
+        const user: User = {
+          id: response.id,
+          nombres: response.usuario, // El backend envía 'usuario', nosotros lo guardamos como 'nombres'
+          email: response.correo,
+          rol: response.rol,
+        };
+
+        set({
+          user,
+          token: response.token,
+          isAuthenticated: true,
         });
       },
+
       logout: () => {
-        console.log("👋 CERRANDO SESIÓN");
-        // Borramos todo explícitamente
-        localStorage.removeItem('auth-storage'); 
-        set({ token: null, user: null, isAuthenticated: false });
+        localStorage.removeItem("token");
+        localStorage.removeItem("refreshToken");
+        set({
+          user: null,
+          token: null,
+          isAuthenticated: false,
+        });
       },
+
+      // ✅ AGREGADO: Implementación de setUser
+      setUser: (user: User) => set({ user }),
     }),
     {
-      name: 'auth-storage', // Nombre de la llave en LocalStorage
+      name: "auth-storage",
     }
   )
 );

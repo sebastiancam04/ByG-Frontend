@@ -1,38 +1,44 @@
 import axios from "axios";
-import { useAuthStore } from "@/stores/auth.store";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5064/api";
-
+// Creamos la instancia apuntando al puerto correcto (5000)
 export const api = axios.create({
-  baseURL: API_URL,
+  baseURL: "http://localhost:5000/api",
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// 1. Interceptor para INYECTAR el token automáticamente
+// Interceptor para agregar el token automáticamente a cada petición
 api.interceptors.request.use((config) => {
-  // Leemos el token directamente del estado de Zustand (más seguro)
-  const token = useAuthStore.getState().token;
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  // Verificamos que estamos en el navegador
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });
 
-// 2. Interceptor para DETECTAR errores 401 (Token vencido/inválido)
+// Interceptor INTELIGENTE para manejar errores
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      console.warn("⚠️ Sesión expirada o token inválido. Cerrando sesión...");
+    // Si el servidor dice "401 Unauthorized" (Token vencido o inválido)
+    if (error.response && error.response.status === 401) {
       
-      // Limpiamos el estado y el localStorage
-      useAuthStore.getState().logout();
-      
-      // Redirigimos al login si no estamos ya ahí
-      if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
-        window.location.href = "/login";
+      if (typeof window !== "undefined") {
+        console.warn("Sesión inválida o expirada. Cerrando sesión automáticamente...");
+
+        // 1. Limpieza profunda del navegador
+        localStorage.removeItem("token");
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("auth-storage"); // Borra el caché de Zustand
+
+        // 2. Redirección forzada al Login (si no estamos ya ahí)
+        if (!window.location.pathname.startsWith("/login")) {
+          window.location.href = "/login"; // Esto recarga la página y limpia el estado de memoria
+        }
       }
     }
     return Promise.reject(error);

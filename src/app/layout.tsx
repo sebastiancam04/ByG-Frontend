@@ -6,7 +6,7 @@ import { Toaster } from "sonner"; // Importamos el componente de notificaciones
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "ByG Ingeniería - Gestión de Materiales",
+  title: "ByG Ingeniería - Gestión de Productos",
   description: "Plataforma de gestión de solicitudes y bodega",
 };
 
@@ -20,9 +20,9 @@ export default function RootLayout({
       <body className={inter.className}>
         {/* Renderizamos la aplicación */}
         {children}
-        
-        {/* Agregamos el Toaster aquí para que esté disponible en todas las páginas */}
-        <Toaster richColors position="top-center" duration={4000} />
+
+        {/* ✅ CORREGIDO: Duración a 2 segundos (2000ms) y botón para cerrar (closeButton) */}
+        <Toaster richColors position="top-center" duration={2000} closeButton />
       </body>
     </html>
   );

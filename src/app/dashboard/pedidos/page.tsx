@@ -35,13 +35,22 @@ export default function MisPedidosPage() {
 
   const getEstadoBadge = (estado: string) => {
     switch (estado) {
-      case "Pendiente": return <span className="px-2 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700">En Revisión</span>
-      case "AprobadaBodega": return <span className="px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">En Bodega</span>
-      case "Finalizada": return <span className="px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">Entregado</span>
-      case "Rechazada": return <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">Rechazado</span>
-      default: return <span className="px-2 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600">{estado}</span>
+      case "Pendiente":
+        return <span className="px-2 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700 border border-yellow-200">Pendiente</span>;
+      case "EnRevision":
+        return <span className="px-2 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-700 border border-purple-200">En Revisión</span>;
+      case "AprobadaBodega":
+        return <span className="px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200">Aprobado (Bodega)</span>;
+      case "RequiereCompra":
+        return <span className="px-2 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700 border border-orange-200">Requiere Compra</span>;
+      case "Finalizada":
+        return <span className="px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200">Entregado</span>;
+      case "Rechazada":
+        return <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200">Rechazado</span>;
+      default:
+        return <span className="px-2 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">{estado}</span>;
     }
-  }
+  };
 
   const pedidosFiltrados = pedidos.filter(p => 
     p.proyecto.toLowerCase().includes(filtro.toLowerCase()) ||

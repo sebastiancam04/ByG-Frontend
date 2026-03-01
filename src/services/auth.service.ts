@@ -1,34 +1,34 @@
-import axios from "axios";
-import { LoginDto, LoginResponseDto } from "@/types/auth";
-import { useAuthStore } from "@/stores/auth.store";
-
-// Asegúrate de que el puerto sea el correcto (5064 según tu backend)
-const API_URL = "http://localhost:5064/api/auth";
+import { api } from "@/lib/axios"; // ✅ CORREGIDO: Importación con llaves
+import { LoginResponse } from "@/types/auth";
 
 export const authService = {
-  // 1. Iniciar Sesión
-  login: async (credentials: LoginDto): Promise<LoginResponseDto> => {
-    const response = await axios.post(`${API_URL}/login`, credentials);
+  async login(correo: string, password: string): Promise<LoginResponse> {
+    const { data } = await api.post<LoginResponse>("/auth/login", {
+      correo,
+      password,
+    });
+    return data;
+  },
+
+  async refreshToken(token: string, refreshToken: string) {
+    const { data } = await api.post("/auth/refresh", {
+      token,
+      refreshToken,
+    });
+    return data;
+  },
+
+  async requestPasswordReset(correo: string) {
+    const { data } = await api.post("/auth/forgot-password", { correo });
+    return data;
+  },
+
+  async resetPassword(payload: { correo: string; codigo: string; nuevaPassword: string }) {
+    const { data } = await api.post("/auth/reset-password", payload);
+    return data;
+  },
+  getPerfil: async () => {
+    const response = await api.get<LoginResponse>("/auth/perfil");
     return response.data;
   },
-
-  // 2. Solicitar Código
-  requestRecovery: async (email: string): Promise<void> => {
-    // La ruta correcta en tu backend es 'recover-password'
-    await axios.post(`${API_URL}/recover-password`, { correo: email });
-  },
-
-  // 3. Restablecer Contraseña (AQUÍ ESTÁ LA CORRECCIÓN)
-  resetPassword: async (data: { correo: string; codigo: string; nuevaPassword: string }): Promise<void> => {
-    
-    // ⚠️ TRADUCCIÓN DE DATOS: Frontend -> Backend
-    const payload = {
-        Correo: data.correo,
-        Token: data.codigo,          // El backend espera "Token", nosotros tenemos "codigo"
-        NuevaPassword: data.nuevaPassword // El backend espera "NuevaPassword"
-    };
-    
-    // Enviamos el objeto 'payload' que ya tiene los nombres correctos
-    await axios.post(`${API_URL}/reset-password`, payload);
-  }
 };

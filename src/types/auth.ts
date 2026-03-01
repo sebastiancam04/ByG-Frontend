@@ -1,20 +1,25 @@
-export interface LoginDto {
-  Correo: string;
-  Password: string;
-}
-
-// ✅ IMPORTANTE: Todo en minúscula para coincidir con tu Backend y Frontend
-export interface UsuarioDto {
+export interface User {
+  id: number;
   nombres: string;
-  apellidoPaterno: string;
+  apellidos?: string;
+  email: string;
   rol: string;
-  correo: string;
-  rut?: string; // Opcional
 }
 
-export interface LoginResponseDto {
-  mensaje: string;
-  usuario: UsuarioDto;
+export interface LoginResponse {
   token: string;
   refreshToken: string;
+  id: number;
+  correo: string;
+  rol: string;
+  usuario: string; // Nombre completo que envía el backend
+}
+
+export interface AuthState {
+  user: User | null;
+  token: string | null;
+  isAuthenticated: boolean;
+  login: (userData: LoginResponse) => void;
+  logout: () => void;
+  setUser: (user: User) => void; // ✅ AGREGADO: Para poder actualizar el perfil
 }
