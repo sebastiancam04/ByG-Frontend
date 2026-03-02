@@ -1,8 +1,10 @@
 import axios from "axios";
 
-// Creamos la instancia apuntando al puerto correcto (5000)
+// Leemos la URL desde las variables de entorno de Vercel (o usamos localhost de respaldo)
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+
 export const api = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: apiUrl, // ✅ Ahora es dinámico
   headers: {
     "Content-Type": "application/json",
   },
@@ -10,7 +12,6 @@ export const api = axios.create({
 
 // Interceptor para agregar el token automáticamente a cada petición
 api.interceptors.request.use((config) => {
-  // Verificamos que estamos en el navegador
   if (typeof window !== "undefined") {
     const token = localStorage.getItem("token");
     if (token) {
@@ -24,20 +25,16 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Si el servidor dice "401 Unauthorized" (Token vencido o inválido)
     if (error.response && error.response.status === 401) {
-      
       if (typeof window !== "undefined") {
         console.warn("Sesión inválida o expirada. Cerrando sesión automáticamente...");
 
-        // 1. Limpieza profunda del navegador
         localStorage.removeItem("token");
         localStorage.removeItem("refreshToken");
-        localStorage.removeItem("auth-storage"); // Borra el caché de Zustand
+        localStorage.removeItem("auth-storage"); 
 
-        // 2. Redirección forzada al Login (si no estamos ya ahí)
         if (!window.location.pathname.startsWith("/login")) {
-          window.location.href = "/login"; // Esto recarga la página y limpia el estado de memoria
+          window.location.href = "/login";
         }
       }
     }
