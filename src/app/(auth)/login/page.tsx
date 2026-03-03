@@ -32,7 +32,13 @@ const loginSchema = z.object({
 
 const resetSchema = z.object({
   codigo: z.string().min(1, "El código es obligatorio"),
-  nuevaPassword: z.string().min(6, "Mínimo 6 caracteres"),
+  
+  nuevaPassword: z.string()
+    .min(6, "Mínimo 6 caracteres")
+    .refine(
+      (val) => /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/.test(val),
+      "Debe tener mín. 6 caracteres, 1 mayúscula, 1 minúscula y 1 número."
+    ),
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
@@ -114,9 +120,27 @@ export default function LoginPage() {
       toast.success("Contraseña actualizada exitosamente.");
       setView("LOGIN");
     } catch (error: unknown) { 
-      if (error instanceof AxiosError) toast.error(error.response?.data?.mensaje || "Código inválido o expirado");
-      else toast.error("Error al cambiar la contraseña");
-    } finally { setLoading(false); }
+      if (error instanceof AxiosError) {
+        const backendError = error.response?.data;
+        
+        // 1. Si Identity nos manda el texto del error exacto
+        if (typeof backendError === "string") {
+          toast.error(backendError);
+        } 
+        // 2. Si nos manda un JSON estructurado con un mensaje
+        else if (backendError?.mensaje || backendError?.error) {
+          toast.error(backendError.mensaje || backendError.error);
+        } 
+        // 3. Fallback genérico
+        else {
+          toast.error("Código inválido o expirado.");
+        }
+      } else {
+        toast.error("Error al cambiar la contraseña");
+      }
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const primaryColor = "#D32F2F";

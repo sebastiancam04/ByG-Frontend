@@ -50,17 +50,23 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { usersService } from "@/services/users.service";
 import { User, CreateUserDto } from "@/types/users";
 import { useAuthStore } from "@/stores/auth.store";
-
+import axios from "axios";
 // --- ESQUEMA DE VALIDACIÓN (ZOD) ---
 const userSchema = z.object({
   nombres: z.string().min(2, "El nombre es obligatorio"),
   apellidos: z.string().min(2, "El apellido es obligatorio"),
-  correo: z.string().email("Correo inválido"),
+  correo: z.string()
+    .email("Correo inválido")
+    .endsWith("@byg-ingenieria.cl", "El correo debe ser @byg-ingenieria.cl"),
   rol: z.string().min(1, "Selecciona un rol"),
-  // Password es opcional (string o undefined)
-  password: z.string().optional(),
   // Activo es boolean estricto (el default lo maneja el useForm)
   activo: z.boolean(),
+  password: z.string()
+    .optional()
+    .refine(
+      (val) => !val || /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/.test(val),
+      "Debe tener mín. 6 caracteres, 1 mayúscula, 1 minúscula y 1 número."
+    ),
 });
 
 type UserFormValues = z.infer<typeof userSchema>;
@@ -168,9 +174,28 @@ export default function UsuariosPage() {
 
       setIsDialogOpen(false);
       fetchUsers();
-    } catch (error) {
+    } catch (error: unknown) { 
       console.error("Error submit:", error);
-      toast.error("Error al guardar usuario. Revisa si el correo ya existe.");
+      
+      // ✅ Le decimos a TypeScript que verifique si el error viene de Axios (del Backend)
+      if (axios.isAxiosError(error) && error.response && error.response.data) {
+        const backendError = error.response.data;
+        
+        // 1. Si el backend (Identity) nos manda una lista de errores (ej. Contraseña corta)
+        if (Array.isArray(backendError) && backendError.length > 0 && backendError[0].description) {
+          toast.error(backendError[0].description);
+          return;
+        }
+        
+        // 2. Si el backend manda un error de texto simple (ej. "El correo ya existe.")
+        if (typeof backendError === "string") {
+          toast.error(backendError);
+          return;
+        }
+      }
+
+      // 3. Fallback genérico si se cae internet u otro error raro
+      toast.error("Error al guardar usuario. Revisa los datos.");
     }
   };
 

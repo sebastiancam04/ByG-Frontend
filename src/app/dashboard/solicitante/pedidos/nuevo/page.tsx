@@ -285,7 +285,7 @@ export default function NuevaSolicitudPage() {
                     <span className="flex items-center gap-2"><Search className="w-5 h-5 text-[#D32F2F]" /> Catálogo de Materiales</span>
                     {!isManualMode && (
                       <Button variant="ghost" size="sm" className="text-xs text-[#D32F2F] hover:text-red-700 hover:bg-red-50" onClick={() => setIsManualMode(true)}>
-                        <AlertCircle className="w-3 h-3 mr-1" /> ¿No está en la lista?
+                        <AlertCircle className="w-3 h-3 mr-1" /> ¿No hay existencia en bodega?
                       </Button>
                     )}
                   </CardTitle>
@@ -409,7 +409,7 @@ export default function NuevaSolicitudPage() {
                           {/* ✅ MOSTRAR OBSERVACIÓN EN EL CARRITO SI EXISTE */}
                           {item.observacion && (
                             <div className="mt-2 text-xs text-slate-500 bg-slate-50 p-2 rounded border border-slate-100 italic">
-                                "{item.observacion}"
+                                &quot;{item.observacion}&quot;
                             </div>
                           )}
                         </div>
