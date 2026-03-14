@@ -82,8 +82,8 @@ export default function LoginPage() {
           } else if (response.rol === "Solicitante") {
             router.push("/dashboard/solicitante");
           } else if (response.rol === "AutorizadorCompras") {
-            // Agregado por si pruebas con Samuel Fuentes
-            router.push("/"); // Cambia esta ruta a donde deba ir Samuel
+            
+            router.push("/"); 
           } else {
             router.push("/");
           }
