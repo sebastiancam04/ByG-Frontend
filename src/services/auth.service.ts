@@ -1,9 +1,10 @@
-import { api } from "@/lib/axios"; // ✅ CORREGIDO: Importación con llaves
+import { api } from "@/lib/axios";
 import { LoginResponse } from "@/types/auth";
 
 export const authService = {
   async login(correo: string, password: string): Promise<LoginResponse> {
-    const { data } = await api.post<LoginResponse>("/auth/login", {
+    // CAMBIO: Se usa "/Auth/login" con A mayúscula para coincidir con el controlador .NET
+    const { data } = await api.post<LoginResponse>("/Auth/login", {
       correo,
       password,
     });
@@ -11,7 +12,7 @@ export const authService = {
   },
 
   async refreshToken(token: string, refreshToken: string) {
-    const { data } = await api.post("/auth/refresh", {
+    const { data } = await api.post("/Auth/refresh", {
       token,
       refreshToken,
     });
@@ -19,16 +20,17 @@ export const authService = {
   },
 
   async requestPasswordReset(correo: string) {
-    const { data } = await api.post("/auth/forgot-password", { correo });
+    const { data } = await api.post("/Auth/forgot-password", { correo });
     return data;
   },
 
   async resetPassword(payload: { correo: string; codigo: string; nuevaPassword: string }) {
-    const { data } = await api.post("/auth/reset-password", payload);
+    const { data } = await api.post("/Auth/reset-password", payload);
     return data;
   },
+
   getPerfil: async () => {
-    const response = await api.get<LoginResponse>("/auth/perfil");
+    const response = await api.get<LoginResponse>("/Auth/perfil");
     return response.data;
   },
 };
