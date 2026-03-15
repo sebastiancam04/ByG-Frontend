@@ -10,7 +10,7 @@ export const productosService = {
 
   // 2. Traer productos filtrados por una bodega específica (Opcional)
   getByBodega: async (bodegaId: number) => {
-    
+     
     const response = await api.get(`/Productos/bodega/${bodegaId}`);
     return response.data;
   }
