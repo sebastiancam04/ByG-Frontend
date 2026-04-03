@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ByG Ingenieria - Frontend Web
 
-## Getting Started
+Plataforma web para el Sistema de Gestion de Solicitud de Materiales de ByG Ingenieria. Este portal permite a los usuarios de terreno realizar pedidos, a los bodegueros administrar el inventario y al administrador gestionar los accesos del sistema.
 
-First, run the development server:
+El proyecto esta desarrollado con Next.js (App Router) para ofrecer una interfaz rapida, reactiva y optimizada.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Tecnologias Principales
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+* Framework: Next.js (React)
+* Lenguaje: TypeScript
+* Estilos: Tailwind CSS
+* Componentes UI: Shadcn UI (Radix UI)
+* Gestion del Estado: Zustand (Auth Store)
+* Peticiones HTTP: Axios
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Estructura del Proyecto
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+* src/app: Rutas y paginas de la aplicacion (App Router). Incluye los paneles protegidos en /dashboard.
+* src/components/ui: Componentes reutilizables de interfaz grafica (Botones, Tablas, Modales, Inputs).
+* src/services: Funciones encargadas de la comunicacion HTTP con la API del Backend.
+* src/stores: Manejo del estado global de la aplicacion (ej. sesion de usuario).
+* src/types: Definicion de interfaces de TypeScript para un tipado estricto.
+* src/lib: Utilidades de configuracion general y configuracion del cliente Axios.
 
-## Learn More
+## Requisitos Previos
 
-To learn more about Next.js, take a look at the following resources:
+* Node.js (version 18 o superior).
+* Gestor de paquetes npm, yarn o pnpm.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Configuracion y Ejecucion Local
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Clonar el repositorio:
+    git clone https://github.com/sebastiancam04/ByG-Frontend.git
+    cd ByG-Frontend
 
-## Deploy on Vercel
+2. Instalar las dependencias:
+    npm install
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+3. Configuracion de Variables de Entorno:
+    Crea un archivo .env.local en la raiz del proyecto para conectar el frontend con la API:
+    NEXT_PUBLIC_API_URL=http://localhost:5000/api
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+4. Ejecutar el servidor de desarrollo:
+    npm run dev
+
+    La aplicacion se ejecutara en http://localhost:3000.
+
+## Control de Accesos (RBAC)
+
+El frontend gestiona la proteccion de rutas y visualizacion de componentes dependiendo del rol definido en el JWT del usuario:
+* Solicitante: Acceso al catalogo de materiales, modulo de carrito y generacion de pedidos.
+* Bodeguero: Administracion del inventario y gestion de los estados de las solicitudes.
+* Administrador: Acceso total al sistema, incluyendo el panel de control de usuarios (CRUD).
