@@ -58,7 +58,7 @@ interface ItemCarrito {
   temporalCodigo?: string;
   temporalUnidad?: string;
   temporalTalla?: string;
-  observacion?: string; // ✅ Campo de observación en el carrito
+  observacion?: string;
 }
 
 // --- COMPONENTE PRINCIPAL ---
@@ -74,13 +74,14 @@ export default function NuevaSolicitudPage() {
   const [isManualMode, setIsManualMode] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
-  // Estado para el ítem manual
+  // ✅ ESTADO DEL ÍTEM MANUAL (Ahora incluye productoId)
   const [manualItem, setManualItem] = useState({
+    productoId: null as number | null,
     nombre: "",
     codigo: "",
     unidad: "",
     talla: "",
-    observacion: "", // ✅ Inicializamos vacío
+    observacion: "",
   });
 
   const [cantidad, setCantidad] = useState(1);
@@ -117,6 +118,29 @@ export default function NuevaSolicitudPage() {
     }
   }, [searchTerm, productos]);
 
+  // ✅ FILTRAMOS LOS PRODUCTOS SIN STOCK PARA LA LISTA DESPLEGABLE
+  const productosSinStock = productos.filter(p => p.cantidad <= 0);
+
+  // ✅ FUNCIÓN PARA AUTOCOMPLETAR CUANDO ELIGEN UN PRODUCTO SIN STOCK
+  const handleSelectSinStock = (idString: string) => {
+    if (!idString) {
+      // Si eligen "Totalmente nuevo", limpiamos
+      setManualItem({ productoId: null, nombre: "", codigo: "", unidad: "", talla: "", observacion: manualItem.observacion });
+      return;
+    }
+    const prod = productos.find(p => p.id.toString() === idString);
+    if (prod) {
+      setManualItem({
+        productoId: prod.id,
+        nombre: prod.nombreProducto,
+        codigo: prod.codigoProducto,
+        unidad: prod.formato, 
+        talla: prod.tallaMedida || "",
+        observacion: manualItem.observacion // Mantenemos lo que haya escrito en observación
+      });
+    }
+  };
+
   const agregarDesdeCatalogo = (producto: Producto) => {
     if (carrito.find((item) => item.productoId === producto.id)) {
       return toast.error("Este producto ya está en el carrito");
@@ -137,25 +161,31 @@ export default function NuevaSolicitudPage() {
     if (!manualItem.nombre) return toast.error("El nombre del material es obligatorio");
     if (!manualItem.unidad) return toast.error("Debes especificar una unidad");
 
+    const isCatalogItem = manualItem.productoId !== null;
+
     const item: ItemCarrito = {
-      productoId: null,
-      nombreDisplay: `(NUEVO) ${manualItem.nombre} [${manualItem.unidad}]`,
-      codigoDisplay: manualItem.codigo || "S/C",
+      productoId: manualItem.productoId,
+      // Si es de catálogo usamos su nombre normal, si no, le ponemos la etiqueta (NUEVO)
+      nombreDisplay: isCatalogItem ? manualItem.nombre : `(NUEVO) ${manualItem.nombre} [${manualItem.unidad}]`,
+      codigoDisplay: manualItem.codigo || (isCatalogItem ? "" : "S/C"),
+      formatoDisplay: manualItem.unidad,
       cantidad: cantidad,
-      temporalNombre: manualItem.nombre,
-      temporalCodigo: manualItem.codigo,
-      temporalUnidad: manualItem.unidad,
-      temporalTalla: manualItem.talla,
-      observacion: manualItem.observacion, // ✅ Agregamos observación al ítem
+      // Los datos temporales SOLO se envían si ES fuera de catálogo
+      temporalNombre: isCatalogItem ? undefined : manualItem.nombre,
+      temporalCodigo: isCatalogItem ? undefined : manualItem.codigo,
+      temporalUnidad: isCatalogItem ? undefined : manualItem.unidad,
+      temporalTalla: isCatalogItem ? undefined : manualItem.talla,
+      observacion: manualItem.observacion,
     };
 
     setCarrito([...carrito, item]);
-    toast.success("Ítem manual agregado");
+    toast.success(isCatalogItem ? "Producto sin stock agregado" : "Ítem manual agregado");
     
-    // Limpiamos formulario
-    setManualItem({ nombre: "", codigo: "", unidad: "", talla: "", observacion: "" });
-    setIsManualMode(false);
+    // Limpiamos los campos para el siguiente ingreso, pero NO cerramos el formulario
+    setManualItem({ productoId: null, nombre: "", codigo: "", unidad: "", talla: "", observacion: "" });
     setCantidad(1);
+    
+    // Eliminamos la linea setIsManualMode(false) para mantener al usuario en esta vista
   };
 
   const eliminarDelCarrito = (index: number) => {
@@ -177,7 +207,7 @@ export default function NuevaSolicitudPage() {
         temporalCodigo: item.temporalCodigo || null,
         temporalUnidad: item.temporalUnidad || null,
         temporalTalla: item.temporalTalla || null,
-        observacion: item.observacion || null, // ✅ Se envía al servicio
+        observacion: item.observacion || null,
       }));
 
       await solicitudesService.create({
@@ -328,24 +358,64 @@ export default function NuevaSolicitudPage() {
                       </div>
                     </div>
                   ) : (
-                    // FORMULARIO MANUAL CON CAMPO DE OBSERVACIÓN
+                    // FORMULARIO MANUAL / SIN STOCK
                     <div className="bg-orange-50 p-6 rounded-xl border border-orange-100 animate-in fade-in slide-in-from-bottom-4">
                       <div className="flex items-center gap-3 mb-6 pb-4 border-b border-orange-200/50">
                         <div className="bg-orange-100 p-2 rounded-lg text-orange-700"><PackagePlus className="w-6 h-6" /></div>
-                        <div><h3 className="font-bold text-orange-900 text-lg">Solicitud Especial</h3><p className="text-sm text-orange-700">Usa esto solo si el material no existe en el catálogo.</p></div>
+                        <div>
+                          <h3 className="font-bold text-orange-900 text-lg">Solicitud Especial / Sin Stock</h3>
+                          <p className="text-sm text-orange-700">Pide material que se acabó en bodega o que está fuera del catálogo.</p>
+                        </div>
                       </div>
+
+                      {/* ✅ LISTA DESPLEGABLE DE PRODUCTOS AGOTADOS */}
+                      {productosSinStock.length > 0 && (
+                        <div className="mb-6 p-4 bg-white rounded-lg border border-orange-200 shadow-sm">
+                          <Label className="text-orange-900 font-bold mb-2 block">¿Es un producto del catálogo que se quedó sin stock?</Label>
+                          <select 
+                            className="flex h-11 w-full rounded-md border border-orange-300 bg-orange-50 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 text-orange-900 font-medium"
+                            onChange={(e) => handleSelectSinStock(e.target.value)}
+                            value={manualItem.productoId?.toString() || ""}
+                          >
+                            <option value="">No, es un material totalmente nuevo (Fuera de catálogo)</option>
+                            {productosSinStock.map(p => (
+                              <option key={p.id} value={p.id}>
+                                {p.codigoProducto} - {p.nombreProducto} (Agotado)
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
                         <div className="space-y-2 md:col-span-2">
                             <Label className="text-orange-900 font-semibold">Nombre del Material *</Label>
-                            <Input placeholder="Ej: Disco de corte especial..." className="bg-white border-orange-200 focus-visible:ring-orange-500 h-11" value={manualItem.nombre} onChange={(e) => setManualItem({ ...manualItem, nombre: e.target.value })} autoFocus />
+                            <Input 
+                              placeholder="Ej: Disco de corte especial..." 
+                              className="bg-white border-orange-200 focus-visible:ring-orange-500 h-11" 
+                              value={manualItem.nombre} 
+                              onChange={(e) => setManualItem({ ...manualItem, nombre: e.target.value })} 
+                              autoFocus 
+                            />
                         </div>
                         
-                        <div className="space-y-2"><Label className="text-orange-900">Marca / Modelo</Label><Input placeholder="Ej: Bosch..." className="bg-white border-orange-200 focus-visible:ring-orange-500" value={manualItem.codigo} onChange={(e) => setManualItem({ ...manualItem, codigo: e.target.value })} /></div>
+                        <div className="space-y-2">
+                          <Label className="text-orange-900">Marca / Modelo / Código</Label>
+                          <Input 
+                            placeholder="Ej: Bosch..." 
+                            className="bg-white border-orange-200 focus-visible:ring-orange-500" 
+                            value={manualItem.codigo} 
+                            onChange={(e) => setManualItem({ ...manualItem, codigo: e.target.value })} 
+                          />
+                        </div>
                         
                         <div className="space-y-2">
                             <Label className="text-orange-900">Unidad *</Label>
-                            <select className="flex h-10 w-full rounded-md border border-orange-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500" value={manualItem.unidad} onChange={(e) => setManualItem({ ...manualItem, unidad: e.target.value })}>
+                            <select 
+                              className="flex h-10 w-full rounded-md border border-orange-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500" 
+                              value={manualItem.unidad} 
+                              onChange={(e) => setManualItem({ ...manualItem, unidad: e.target.value })}
+                            >
                                 <option value="">Seleccione...</option>
                                 <option value="UNIDAD">Unidad (C/U)</option>
                                 <option value="METRO">Metros (mts)</option>
@@ -353,26 +423,51 @@ export default function NuevaSolicitudPage() {
                                 <option value="CAJA">Caja / Paquete</option>
                                 <option value="JUEGO">Juego / Set</option>
                                 <option value="GLOBAL">Global</option>
+                                {/* Opciones de catálogo si el autocompletado trae otra cosa */}
+                                {manualItem.productoId && manualItem.unidad && !["UNIDAD","METRO","LITRO","CAJA","JUEGO","GLOBAL"].includes(manualItem.unidad) && (
+                                  <option value={manualItem.unidad}>{manualItem.unidad}</option>
+                                )}
                             </select>
                         </div>
 
-                        {/* ✅ NUEVO INPUT DE OBSERVACIÓN */}
                         <div className="space-y-2 md:col-span-2">
-                            <Label className="text-orange-900">Observación / Descripción Adicional</Label>
+                            <Label className="text-orange-900">Observación / Justificación</Label>
                             <Input 
-                                placeholder="Ej: Debe ser certificado, marca específica, color rojo..." 
+                                placeholder="Ej: Se necesita con urgencia para tablero principal..." 
                                 className="bg-white border-orange-200 focus-visible:ring-orange-500" 
                                 value={manualItem.observacion} 
                                 onChange={(e) => setManualItem({ ...manualItem, observacion: e.target.value })} 
                             />
                         </div>
 
-                        <div className="space-y-2"><Label className="text-orange-900">Talla / Medida</Label><Input placeholder="Ej: XL, 10mm..." className="bg-white border-orange-200 focus-visible:ring-orange-500" value={manualItem.talla} onChange={(e) => setManualItem({ ...manualItem, talla: e.target.value })} /></div>
+                        <div className="space-y-2">
+                          <Label className="text-orange-900">Talla / Medida</Label>
+                          <Input 
+                            placeholder="Ej: XL, 10mm..." 
+                            className="bg-white border-orange-200 focus-visible:ring-orange-500" 
+                            value={manualItem.talla} 
+                            onChange={(e) => setManualItem({ ...manualItem, talla: e.target.value })} 
+                          />
+                        </div>
                         
-                        <div className="space-y-2"><Label className="text-orange-900 font-bold">Cantidad *</Label><Input type="number" min="1" className="bg-white border-orange-200 focus-visible:ring-orange-500 font-bold" value={cantidad} onChange={(e) => setCantidad(parseInt(e.target.value) || 1)} /></div>
+                        <div className="space-y-2">
+                          <Label className="text-orange-900 font-bold">Cantidad *</Label>
+                          <Input 
+                            type="number" 
+                            min="1" 
+                            className="bg-white border-orange-200 focus-visible:ring-orange-500 font-bold" 
+                            value={cantidad} 
+                            onChange={(e) => setCantidad(parseInt(e.target.value) || 1)} 
+                          />
+                        </div>
                       </div>
                       
-                      <div className="flex gap-3 justify-end pt-2"><Button variant="ghost" onClick={() => setIsManualMode(false)} className="hover:bg-orange-100 hover:text-orange-900">Cancelar</Button><Button className="bg-orange-600 hover:bg-orange-700 text-white shadow-md border-0" onClick={agregarManual}><Plus className="w-4 h-4 mr-2" /> Agregar al Pedido</Button></div>
+                      <div className="flex gap-3 justify-end pt-2">
+                        <Button variant="ghost" onClick={() => setIsManualMode(false)} className="hover:bg-orange-100 hover:text-orange-900">Cancelar</Button>
+                        <Button className="bg-orange-600 hover:bg-orange-700 text-white shadow-md border-0" onClick={agregarManual}>
+                          <Plus className="w-4 h-4 mr-2" /> Agregar al Pedido
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </CardContent>
@@ -406,7 +501,7 @@ export default function NuevaSolicitudPage() {
                             <button onClick={() => eliminarDelCarrito(idx)} className="text-slate-300 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar"><Trash2 className="w-4 h-4" /></button>
                           </div>
                           
-                          {/* ✅ MOSTRAR OBSERVACIÓN EN EL CARRITO SI EXISTE */}
+                          {/* MOSTRAR OBSERVACIÓN EN EL CARRITO SI EXISTE */}
                           {item.observacion && (
                             <div className="mt-2 text-xs text-slate-500 bg-slate-50 p-2 rounded border border-slate-100 italic">
                                 &quot;{item.observacion}&quot;
@@ -426,6 +521,7 @@ export default function NuevaSolicitudPage() {
         </div>
       </main>
 
+      {/* FOOTER */}
       <footer className="text-[#CCCCCC]" style={{ backgroundColor: "#222222" }}>
         <div className="container mx-auto px-4 py-12 max-w-6xl">
           <div className="grid md:grid-cols-3 gap-10">

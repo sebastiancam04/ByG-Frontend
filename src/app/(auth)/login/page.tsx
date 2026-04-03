@@ -74,11 +74,17 @@ export default function LoginPage() {
 
         // Redirección por roles
         setTimeout(() => {
-          // ✅ CAMBIO REALIZADO: Ahora el Admin va al Home ("/")
-          if (response.rol === "Bodeguero") {
-            router.push("/");
+          // Aceptamos tanto "Administrador" como "Admin"
+          if (response.rol === "Administrador" || response.rol === "Admin") {
+            router.push("/dashboard/admin");
+          } else if (response.rol === "Bodeguero") {
+            router.push("/dashboard/bodeguero/pedidos");
+          } else if (response.rol === "Solicitante") {
+            router.push("/dashboard/solicitante");
+          } else if (response.rol === "AutorizadorCompras") {
+            
+            router.push("/"); 
           } else {
-            // Tanto Administrador como Solicitante van al Inicio
             router.push("/");
           }
           

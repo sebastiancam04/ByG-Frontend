@@ -51,7 +51,7 @@ import { usersService } from "@/services/users.service";
 import { User, CreateUserDto } from "@/types/users";
 import { useAuthStore } from "@/stores/auth.store";
 import axios from "axios";
-// --- ESQUEMA DE VALIDACIÓN (ZOD) ---
+
 const userSchema = z.object({
   nombres: z.string().min(2, "El nombre es obligatorio"),
   apellidos: z.string().min(2, "El apellido es obligatorio"),
@@ -59,7 +59,6 @@ const userSchema = z.object({
     .email("Correo inválido")
     .endsWith("@byg-ingenieria.cl", "El correo debe ser @byg-ingenieria.cl"),
   rol: z.string().min(1, "Selecciona un rol"),
-  // Activo es boolean estricto (el default lo maneja el useForm)
   activo: z.boolean(),
   password: z.string()
     .optional()
@@ -78,10 +77,11 @@ export default function UsuariosPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  
+  // Aceptamos string o number para compatibilidad con GUIDs
+  const [editingId, setEditingId] = useState<string | number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Formulario con React Hook Form
   const {
     register,
     handleSubmit,
@@ -91,7 +91,6 @@ export default function UsuariosPage() {
     formState: { errors, isSubmitting },
   } = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
-    // Valores por defecto iniciales
     defaultValues: {
       nombres: "",
       apellidos: "",
@@ -102,7 +101,6 @@ export default function UsuariosPage() {
     },
   });
 
-  // Cargar usuarios al montar
   const fetchUsers = async () => {
     setLoading(true);
     try {
@@ -120,7 +118,6 @@ export default function UsuariosPage() {
     fetchUsers();
   }, []);
 
-  // Abrir modal para crear
   const handleCreate = () => {
     setEditingId(null);
     reset({ 
@@ -134,7 +131,6 @@ export default function UsuariosPage() {
     setIsDialogOpen(true);
   };
 
-  // Abrir modal para editar
   const handleEdit = (user: User) => {
     setEditingId(user.id);
     setValue("nombres", user.nombres);
@@ -142,12 +138,10 @@ export default function UsuariosPage() {
     setValue("correo", user.correo);
     setValue("rol", user.rol);
     setValue("activo", user.activo);
-    setValue("password", ""); // Reset password field
+    setValue("password", ""); 
     setIsDialogOpen(true);
   };
 
-  // Guardar (Crear o Editar)
-  // Quitamos el tipo explícito para que TS infiera correctamente desde el handleSubmit
   const onSubmit = async (data: UserFormValues) => {
     try {
       const payload: CreateUserDto = {
@@ -156,7 +150,6 @@ export default function UsuariosPage() {
         correo: data.correo,
         rol: data.rol,
         activo: data.activo,
-        // Si el password está vacío, enviamos undefined para que el backend lo ignore
         password: data.password || undefined,
       };
 
@@ -176,31 +169,23 @@ export default function UsuariosPage() {
       fetchUsers();
     } catch (error: unknown) { 
       console.error("Error submit:", error);
-      
-      // ✅ Le decimos a TypeScript que verifique si el error viene de Axios (del Backend)
       if (axios.isAxiosError(error) && error.response && error.response.data) {
         const backendError = error.response.data;
-        
-        // 1. Si el backend (Identity) nos manda una lista de errores (ej. Contraseña corta)
         if (Array.isArray(backendError) && backendError.length > 0 && backendError[0].description) {
           toast.error(backendError[0].description);
           return;
         }
-        
-        // 2. Si el backend manda un error de texto simple (ej. "El correo ya existe.")
         if (typeof backendError === "string") {
           toast.error(backendError);
           return;
         }
       }
-
-      // 3. Fallback genérico si se cae internet u otro error raro
       toast.error("Error al guardar usuario. Revisa los datos.");
     }
   };
 
-  // Eliminar usuario
-  const handleDelete = async (id: number) => {
+  // Permitimos recibir un ID tipo string
+  const handleDelete = async (id: string | number) => {
     if (!confirm("¿Estás seguro de eliminar este usuario? Esta acción no se puede deshacer.")) return;
     
     try {
@@ -213,7 +198,6 @@ export default function UsuariosPage() {
     }
   };
 
-  // Filtrado simple
   const filteredUsers = users.filter(
     (u) =>
       u.nombres.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -232,8 +216,6 @@ export default function UsuariosPage() {
   return (
     <div className="min-h-screen bg-slate-50 p-8 pt-24 font-sans">
       <div className="container mx-auto max-w-6xl space-y-6">
-        
-        {/* ENCABEZADO */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-extrabold text-slate-900 flex items-center gap-3">
@@ -254,7 +236,6 @@ export default function UsuariosPage() {
           </div>
         </div>
 
-        {/* CONTENIDO PRINCIPAL */}
         <Card className="border-t-4 border-t-[#D32F2F] shadow-lg">
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2 border rounded-md px-3 py-2 w-full max-w-sm bg-slate-50">
@@ -322,7 +303,6 @@ export default function UsuariosPage() {
                             >
                               <Pencil className="w-4 h-4" />
                             </Button>
-                            {/* Evitar borrarse a uno mismo */}
                             {currentUser?.email !== user.correo && (
                               <Button
                                 variant="ghost"
@@ -344,7 +324,6 @@ export default function UsuariosPage() {
           </CardContent>
         </Card>
 
-        {/* MODAL CREAR / EDITAR */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent className="sm:max-w-lg bg-white">
             <DialogHeader>
