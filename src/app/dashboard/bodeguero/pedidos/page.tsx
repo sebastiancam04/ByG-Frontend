@@ -176,7 +176,7 @@ export default function PedidosBodegaPage() {
               Administración centralizada de solicitudes de materiales.
             </p>
           </div>
-          <Button variant="outline" onClick={() => router.back()} className="gap-2">
+          <Button variant="outline" onClick={() => router.push("/")} className="gap-2">
             <ArrowLeft className="w-4 h-4" /> Volver
           </Button>
         </div>
