@@ -74,20 +74,7 @@ export default function LoginPage() {
 
         // Redirección por roles
         setTimeout(() => {
-          // Aceptamos tanto "Administrador" como "Admin"
-          if (response.rol === "Administrador" || response.rol === "Admin") {
-            router.push("/dashboard/admin");
-          } else if (response.rol === "Bodeguero") {
-            router.push("/dashboard/bodeguero/pedidos");
-          } else if (response.rol === "Solicitante") {
-            router.push("/dashboard/solicitante");
-          } else if (response.rol === "AutorizadorCompras") {
-            
-            router.push("/"); 
-          } else {
-            router.push("/");
-          }
-          
+          router.push("/");
           router.refresh();
         }, 1000);
       }
