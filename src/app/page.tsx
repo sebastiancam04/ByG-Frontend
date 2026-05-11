@@ -31,7 +31,6 @@ export default function HomePage() {
   const [isMounted, setIsMounted] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
 
-  // ✅ CORRECCIÓN: Usamos setTimeout para evitar el error de "setState synchronously"
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsMounted(true)
@@ -116,9 +115,10 @@ export default function HomePage() {
                             <div className="bg-white p-1.5 rounded-md shadow-sm"><ShieldCheck className="w-4 h-4 text-[#D32F2F]" /></div> Panel Admin
                           </Link>
                         )}
+                        {/* ✅ CORRECCIÓN AQUÍ: Ahora dirige a /dashboard/bodeguero (El portal de 2 opciones) */}
                         {user?.rol === "Bodeguero" && (
-                          <Link href="/dashboard/bodeguero/pedidos" className="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-[#D32F2F] bg-red-50 hover:bg-red-100 rounded-lg transition-colors mb-1" onClick={() => setIsUserMenuOpen(false)}>
-                            <div className="bg-white p-1.5 rounded-md shadow-sm"><Truck className="w-4 h-4 text-[#D32F2F]" /></div> Panel Bodega
+                          <Link href="/dashboard/bodeguero" className="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-[#D32F2F] bg-red-50 hover:bg-red-100 rounded-lg transition-colors mb-1" onClick={() => setIsUserMenuOpen(false)}>
+                            <div className="bg-white p-1.5 rounded-md shadow-sm"><Truck className="w-4 h-4 text-[#D32F2F]" /></div> Portal Bodega
                           </Link>
                         )}
                         <Link href="/dashboard/cuenta" className="flex items-center gap-3 px-3 py-2.5 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors" onClick={() => setIsUserMenuOpen(false)}>

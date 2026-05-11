@@ -4,38 +4,18 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
-import {
-  Search,
-  Plus,
-  ShoppingCart,
-  Trash2,
-  PackagePlus,
-  AlertCircle,
-  ArrowLeft,
-  ChevronRight,
-  LogOut,
-  User,
-  ShoppingBag,
-  MapPin,
-  Mail,
-  Facebook,
-  Linkedin,
-  Loader2,
-  ShieldCheck, 
-  Truck        
-} from "lucide-react";
+import { Search, Plus, ShoppingCart, Trash2, PackagePlus, AlertCircle, ArrowLeft, ChevronRight, LogOut, User, ShoppingBag, MapPin, Mail, Facebook, Linkedin, Loader2, ShieldCheck, Truck } from "lucide-react";
 import Link from "next/link";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 
 import { productosService } from "@/services/productos.service";
 import { solicitudesService } from "@/services/solicitudes.service";
 import { useAuthStore } from "@/stores/auth.store";
 
-// --- INTERFACES ---
 interface Producto {
   id: number;
   bodegaId: number;
@@ -59,9 +39,9 @@ interface ItemCarrito {
   temporalUnidad?: string;
   temporalTalla?: string;
   observacion?: string;
+  tipoItem: "NORMAL" | "AGOTADO" | "NUEVO";
 }
 
-// --- COMPONENTE PRINCIPAL ---
 export default function NuevaSolicitudPage() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
@@ -74,7 +54,6 @@ export default function NuevaSolicitudPage() {
   const [isManualMode, setIsManualMode] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
-  // ✅ ESTADO DEL ÍTEM MANUAL (Ahora incluye productoId)
   const [manualItem, setManualItem] = useState({
     productoId: null as number | null,
     nombre: "",
@@ -86,18 +65,17 @@ export default function NuevaSolicitudPage() {
 
   const [cantidad, setCantidad] = useState(1);
   const [proyecto, setProyecto] = useState("");
-
+  const [observacionesGral, setObservacionesGral] = useState(""); 
   const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
     const cargarProductos = async () => {
       try {
-        const data: Producto[] = await productosService.getAll();
+        const data = await productosService.getAll();
         setProductos(data);
         setProductosFiltrados(data);
-      } catch (error) {
-        console.error("Error al cargar productos", error);
+      } catch {
         toast.error("Error al cargar el catálogo de productos");
       } finally {
         setCargandoProductos(false);
@@ -118,13 +96,10 @@ export default function NuevaSolicitudPage() {
     }
   }, [searchTerm, productos]);
 
-  // ✅ FILTRAMOS LOS PRODUCTOS SIN STOCK PARA LA LISTA DESPLEGABLE
   const productosSinStock = productos.filter(p => p.cantidad <= 0);
 
-  // ✅ FUNCIÓN PARA AUTOCOMPLETAR CUANDO ELIGEN UN PRODUCTO SIN STOCK
   const handleSelectSinStock = (idString: string) => {
     if (!idString) {
-      // Si eligen "Totalmente nuevo", limpiamos
       setManualItem({ productoId: null, nombre: "", codigo: "", unidad: "", talla: "", observacion: manualItem.observacion });
       return;
     }
@@ -136,7 +111,7 @@ export default function NuevaSolicitudPage() {
         codigo: prod.codigoProducto,
         unidad: prod.formato, 
         talla: prod.tallaMedida || "",
-        observacion: manualItem.observacion // Mantenemos lo que haya escrito en observación
+        observacion: manualItem.observacion 
       });
     }
   };
@@ -145,15 +120,23 @@ export default function NuevaSolicitudPage() {
     if (carrito.find((item) => item.productoId === producto.id)) {
       return toast.error("Este producto ya está en el carrito");
     }
+
     const item: ItemCarrito = {
       productoId: producto.id,
       nombreDisplay: producto.nombreProducto,
       codigoDisplay: producto.codigoProducto,
       formatoDisplay: producto.formato,
       cantidad: cantidad,
+      tipoItem: "NORMAL"
     };
-    setCarrito([...carrito, item]);
-    toast.success(`${producto.nombreProducto} agregado`);
+
+    if (carrito.length > 0 && carrito[0].tipoItem !== "NORMAL") {
+      toast.warning(`Se limpió el carrito porque no puedes mezclar NORMAL con ${carrito[0].tipoItem}.`, { duration: 5000 });
+      setCarrito([item]);
+    } else {
+      setCarrito([...carrito, item]);
+      toast.success(`${producto.nombreProducto} agregado`);
+    }
     setCantidad(1);
   };
 
@@ -161,31 +144,33 @@ export default function NuevaSolicitudPage() {
     if (!manualItem.nombre) return toast.error("El nombre del material es obligatorio");
     if (!manualItem.unidad) return toast.error("Debes especificar una unidad");
 
-    const isCatalogItem = manualItem.productoId !== null;
+    const isAgotado = manualItem.productoId !== null;
+    const tipoItem = isAgotado ? "AGOTADO" : "NUEVO";
 
     const item: ItemCarrito = {
       productoId: manualItem.productoId,
-      // Si es de catálogo usamos su nombre normal, si no, le ponemos la etiqueta (NUEVO)
-      nombreDisplay: isCatalogItem ? manualItem.nombre : `(NUEVO) ${manualItem.nombre} [${manualItem.unidad}]`,
-      codigoDisplay: manualItem.codigo || (isCatalogItem ? "" : "S/C"),
+      nombreDisplay: manualItem.nombre,
+      codigoDisplay: manualItem.codigo || (isAgotado ? "" : "S/C"),
       formatoDisplay: manualItem.unidad,
       cantidad: cantidad,
-      // Los datos temporales SOLO se envían si ES fuera de catálogo
-      temporalNombre: isCatalogItem ? undefined : manualItem.nombre,
-      temporalCodigo: isCatalogItem ? undefined : manualItem.codigo,
-      temporalUnidad: isCatalogItem ? undefined : manualItem.unidad,
-      temporalTalla: isCatalogItem ? undefined : manualItem.talla,
+      temporalNombre: isAgotado ? undefined : manualItem.nombre,
+      temporalCodigo: isAgotado ? undefined : manualItem.codigo,
+      temporalUnidad: isAgotado ? undefined : manualItem.unidad,
+      temporalTalla: isAgotado ? undefined : manualItem.talla,
       observacion: manualItem.observacion,
+      tipoItem: tipoItem
     };
 
-    setCarrito([...carrito, item]);
-    toast.success(isCatalogItem ? "Producto sin stock agregado" : "Ítem manual agregado");
+    if (carrito.length > 0 && carrito[0].tipoItem !== tipoItem) {
+      toast.warning(`Se limpió el carrito porque no puedes mezclar ${tipoItem} con ${carrito[0].tipoItem}.`, { duration: 5000 });
+      setCarrito([item]);
+    } else {
+      setCarrito([...carrito, item]);
+      toast.success(`Ítem ${tipoItem} agregado`);
+    }
     
-    // Limpiamos los campos para el siguiente ingreso, pero NO cerramos el formulario
     setManualItem({ productoId: null, nombre: "", codigo: "", unidad: "", talla: "", observacion: "" });
     setCantidad(1);
-    
-    // Eliminamos la linea setIsManualMode(false) para mantener al usuario en esta vista
   };
 
   const eliminarDelCarrito = (index: number) => {
@@ -197,6 +182,12 @@ export default function NuevaSolicitudPage() {
   const finalizarPedido = async () => {
     if (!proyecto) return toast.error("Falta ingresar el Proyecto / Obra");
     if (carrito.length === 0) return toast.error("El carrito está vacío");
+
+    const tipoPedido = carrito[0].tipoItem;
+    
+    if (tipoPedido !== "NORMAL" && !observacionesGral.trim()) {
+        return toast.error("Para pedidos especiales debes ingresar una Justificación Adicional.");
+    }
 
     setEnviando(true);
     try {
@@ -212,16 +203,27 @@ export default function NuevaSolicitudPage() {
 
       await solicitudesService.create({
         proyecto,
+        observaciones: observacionesGral,
+        tipoPedido, 
         detalles: detallesSolicitud,
       });
 
-      toast.success("¡Solicitud enviada! Se generará la OC automáticamente.");
+      toast.success("¡Solicitud enviada exitosamente!");
       setProyecto("");
+      setObservacionesGral("");
       setCarrito([]);
       window.scrollTo({ top: 0, behavior: "smooth" });
 
-    } catch (error) {
-      console.error(error);
+    } catch (error: unknown) {
+      const err = error as { response?: { status?: number; data?: { error?: string } | string } };
+      if (err.response?.status === 400 && err.response.data) {
+        const errorMsg = typeof err.response.data === 'string' ? err.response.data : err.response.data.error;
+        if (errorMsg) {
+          toast.error(errorMsg, { duration: 6000 });
+          setCarrito([]);
+          return;
+        }
+      }
       toast.error("Error al enviar la solicitud");
     } finally {
       setEnviando(false);
@@ -233,10 +235,10 @@ export default function NuevaSolicitudPage() {
     router.push("/login");
   };
 
+  const requiereJustificacion = carrito.length > 0 && carrito[0].tipoItem !== "NORMAL";
+
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 font-sans selection:bg-red-500/20">
-      
-      {/* HEADER */}
       <header className="fixed top-0 w-full z-50 transition-all duration-300 border-b border-slate-200 bg-white/90 backdrop-blur-md shadow-sm">
         <div className="container mx-auto px-4 h-20 flex items-center justify-between max-w-6xl">
           <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
@@ -269,8 +271,8 @@ export default function NuevaSolicitudPage() {
                       </Link>
                     )}
                     {user?.rol === "Bodeguero" && (
-                      <Link href="/dashboard/bodeguero/pedidos" className="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-[#D32F2F] bg-red-50 hover:bg-red-100 rounded-lg transition-colors mb-1">
-                        <Truck className="w-4 h-4" /> Panel Bodega
+                      <Link href="/dashboard/bodeguero" className="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-[#D32F2F] bg-red-50 hover:bg-red-100 rounded-lg transition-colors mb-1">
+                        <Truck className="w-4 h-4" /> Portal Bodega
                       </Link>
                     )}
                     <Link href="/dashboard/solicitante" className="flex items-center gap-3 px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
@@ -292,7 +294,6 @@ export default function NuevaSolicitudPage() {
 
       <main className="flex-grow pt-32 pb-20 px-4">
         <div className="max-w-6xl mx-auto space-y-6">
-          {/* TÍTULO */}
           <div className="flex flex-col md:flex-row md:items-center gap-4 mb-8">
             <Link href="/">
               <Button variant="outline" size="icon" className="h-10 w-10 rounded-full border-slate-300 hover:border-[#D32F2F] hover:text-[#D32F2F] transition-all">
@@ -301,13 +302,11 @@ export default function NuevaSolicitudPage() {
             </Link>
             <div>
               <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Crear Nueva Solicitud</h1>
-              <p className="text-slate-500 mt-1">Completa los datos de la obra y selecciona los materiales de bodega.</p>
+              <p className="text-slate-500 mt-1">Completa los datos de la obra y selecciona los materiales.</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            {/* PANEL IZQUIERDO: CATÁLOGO */}
             <div className="lg:col-span-2 space-y-6">
               <Card className="border-t-4 border-t-[#D32F2F] shadow-md border-x-0 border-b-0">
                 <CardHeader className="pb-4 border-b border-slate-100">
@@ -323,13 +322,11 @@ export default function NuevaSolicitudPage() {
                 <CardContent className="pt-6">
                   {!isManualMode ? (
                     <div className="space-y-6">
-                      {/* BÚSQUEDA */}
                       <div className="relative group">
                         <Search className="absolute left-3 top-3.5 w-5 h-5 text-slate-400 group-focus-within:text-[#D32F2F] transition-colors" />
-                        <Input placeholder="Buscar por código o nombre (ej: HYFLEX, Disco)..." className="pl-10 h-12 text-base border-slate-200 focus-visible:ring-[#D32F2F]" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} autoFocus />
+                        <Input placeholder="Buscar por código o nombre..." className="pl-10 h-12 text-base border-slate-200 focus-visible:ring-[#D32F2F]" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} autoFocus />
                       </div>
                       
-                      {/* LISTADO DE PRODUCTOS */}
                       <div className="h-[450px] overflow-y-auto border rounded-xl bg-slate-50/50 pr-2 custom-scrollbar">
                         {cargandoProductos ? (
                           <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-3"><Loader2 className="w-8 h-8 animate-spin" /><p>Cargando catálogo...</p></div>
@@ -358,7 +355,6 @@ export default function NuevaSolicitudPage() {
                       </div>
                     </div>
                   ) : (
-                    // FORMULARIO MANUAL / SIN STOCK
                     <div className="bg-orange-50 p-6 rounded-xl border border-orange-100 animate-in fade-in slide-in-from-bottom-4">
                       <div className="flex items-center gap-3 mb-6 pb-4 border-b border-orange-200/50">
                         <div className="bg-orange-100 p-2 rounded-lg text-orange-700"><PackagePlus className="w-6 h-6" /></div>
@@ -368,7 +364,6 @@ export default function NuevaSolicitudPage() {
                         </div>
                       </div>
 
-                      {/* ✅ LISTA DESPLEGABLE DE PRODUCTOS AGOTADOS */}
                       {productosSinStock.length > 0 && (
                         <div className="mb-6 p-4 bg-white rounded-lg border border-orange-200 shadow-sm">
                           <Label className="text-orange-900 font-bold mb-2 block">¿Es un producto del catálogo que se quedó sin stock?</Label>
@@ -390,32 +385,15 @@ export default function NuevaSolicitudPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
                         <div className="space-y-2 md:col-span-2">
                             <Label className="text-orange-900 font-semibold">Nombre del Material *</Label>
-                            <Input 
-                              placeholder="Ej: Disco de corte especial..." 
-                              className="bg-white border-orange-200 focus-visible:ring-orange-500 h-11" 
-                              value={manualItem.nombre} 
-                              onChange={(e) => setManualItem({ ...manualItem, nombre: e.target.value })} 
-                              autoFocus 
-                            />
+                            <Input placeholder="Ej: Disco de corte especial..." className="bg-white border-orange-200 focus-visible:ring-orange-500 h-11" value={manualItem.nombre} onChange={(e) => setManualItem({ ...manualItem, nombre: e.target.value })} autoFocus />
                         </div>
-                        
                         <div className="space-y-2">
                           <Label className="text-orange-900">Marca / Modelo / Código</Label>
-                          <Input 
-                            placeholder="Ej: Bosch..." 
-                            className="bg-white border-orange-200 focus-visible:ring-orange-500" 
-                            value={manualItem.codigo} 
-                            onChange={(e) => setManualItem({ ...manualItem, codigo: e.target.value })} 
-                          />
+                          <Input placeholder="Ej: Bosch..." className="bg-white border-orange-200 focus-visible:ring-orange-500" value={manualItem.codigo} onChange={(e) => setManualItem({ ...manualItem, codigo: e.target.value })} />
                         </div>
-                        
                         <div className="space-y-2">
                             <Label className="text-orange-900">Unidad *</Label>
-                            <select 
-                              className="flex h-10 w-full rounded-md border border-orange-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500" 
-                              value={manualItem.unidad} 
-                              onChange={(e) => setManualItem({ ...manualItem, unidad: e.target.value })}
-                            >
+                            <select className="flex h-10 w-full rounded-md border border-orange-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500" value={manualItem.unidad} onChange={(e) => setManualItem({ ...manualItem, unidad: e.target.value })}>
                                 <option value="">Seleccione...</option>
                                 <option value="UNIDAD">Unidad (C/U)</option>
                                 <option value="METRO">Metros (mts)</option>
@@ -423,42 +401,22 @@ export default function NuevaSolicitudPage() {
                                 <option value="CAJA">Caja / Paquete</option>
                                 <option value="JUEGO">Juego / Set</option>
                                 <option value="GLOBAL">Global</option>
-                                {/* Opciones de catálogo si el autocompletado trae otra cosa */}
                                 {manualItem.productoId && manualItem.unidad && !["UNIDAD","METRO","LITRO","CAJA","JUEGO","GLOBAL"].includes(manualItem.unidad) && (
                                   <option value={manualItem.unidad}>{manualItem.unidad}</option>
                                 )}
                             </select>
                         </div>
-
                         <div className="space-y-2 md:col-span-2">
-                            <Label className="text-orange-900">Observación / Justificación</Label>
-                            <Input 
-                                placeholder="Ej: Se necesita con urgencia para tablero principal..." 
-                                className="bg-white border-orange-200 focus-visible:ring-orange-500" 
-                                value={manualItem.observacion} 
-                                onChange={(e) => setManualItem({ ...manualItem, observacion: e.target.value })} 
-                            />
+                            <Label className="text-orange-900">Observación Específica</Label>
+                            <Input placeholder="Ej: Únicamente de esta medida..." className="bg-white border-orange-200 focus-visible:ring-orange-500" value={manualItem.observacion} onChange={(e) => setManualItem({ ...manualItem, observacion: e.target.value })} />
                         </div>
-
                         <div className="space-y-2">
                           <Label className="text-orange-900">Talla / Medida</Label>
-                          <Input 
-                            placeholder="Ej: XL, 10mm..." 
-                            className="bg-white border-orange-200 focus-visible:ring-orange-500" 
-                            value={manualItem.talla} 
-                            onChange={(e) => setManualItem({ ...manualItem, talla: e.target.value })} 
-                          />
+                          <Input placeholder="Ej: XL, 10mm..." className="bg-white border-orange-200 focus-visible:ring-orange-500" value={manualItem.talla} onChange={(e) => setManualItem({ ...manualItem, talla: e.target.value })} />
                         </div>
-                        
                         <div className="space-y-2">
                           <Label className="text-orange-900 font-bold">Cantidad *</Label>
-                          <Input 
-                            type="number" 
-                            min="1" 
-                            className="bg-white border-orange-200 focus-visible:ring-orange-500 font-bold" 
-                            value={cantidad} 
-                            onChange={(e) => setCantidad(parseInt(e.target.value) || 1)} 
-                          />
+                          <Input type="number" min="1" className="bg-white border-orange-200 focus-visible:ring-orange-500 font-bold" value={cantidad} onChange={(e) => setCantidad(parseInt(e.target.value) || 1)} />
                         </div>
                       </div>
                       
@@ -474,13 +432,22 @@ export default function NuevaSolicitudPage() {
               </Card>
             </div>
 
-            {/* PANEL DERECHO: CARRITO */}
             <div className="space-y-6">
               <Card className="h-full flex flex-col shadow-xl border-slate-200 lg:sticky lg:top-28">
                 <CardHeader className="bg-[#D32F2F] text-white py-4 rounded-t-lg"><CardTitle className="flex items-center gap-2 text-lg"><ShoppingCart className="w-5 h-5 text-white" />Resumen del Pedido</CardTitle></CardHeader>
                 <CardContent className="flex-1 flex flex-col gap-5 pt-6 bg-slate-50/50">
                   <div className="space-y-4 bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
-                    <div className="space-y-2"><Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Proyecto / Obra *</Label><Input placeholder="Ej: Montaje Sala Eléctrica" value={proyecto} onChange={(e) => setProyecto(e.target.value)} className="bg-slate-50 border-slate-200 focus-visible:ring-[#D32F2F]" /></div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Proyecto / Obra *</Label>
+                      <Input placeholder="Ej: Montaje Sala Eléctrica" value={proyecto} onChange={(e) => setProyecto(e.target.value)} className="bg-slate-50 border-slate-200 focus-visible:ring-[#D32F2F]" />
+                    </div>
+                    
+                    {requiereJustificacion && (
+                      <div className="space-y-2 mt-4 animate-in fade-in zoom-in duration-300">
+                        <Label className="text-xs font-bold text-orange-600 uppercase tracking-wider">Justificación Pedido Especial *</Label>
+                        <textarea placeholder="Explica por qué solicitas estos materiales..." value={observacionesGral} onChange={(e) => setObservacionesGral(e.target.value)} className="w-full min-h-[80px] text-sm border border-orange-200 bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-md p-3 transition-all" />
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center justify-between text-sm font-bold text-slate-700 px-1"><span>Materiales seleccionados</span><span className="bg-[#D32F2F] text-white px-2.5 py-0.5 rounded-full text-xs">{carrito.length}</span></div>
                   <div className="flex-1 overflow-y-auto max-h-[350px] min-h-[150px] space-y-3 pr-1 custom-scrollbar">
@@ -488,10 +455,14 @@ export default function NuevaSolicitudPage() {
                       <div className="h-full flex flex-col items-center justify-center text-slate-400 text-sm border-2 border-dashed border-slate-200 rounded-xl p-8 bg-white/50"><ShoppingBag className="w-10 h-10 opacity-10 mb-3" /><p>El carrito está vacío</p></div>
                     ) : (
                       carrito.map((item, idx) => (
-                        <div key={idx} className={`flex flex-col text-sm p-3 rounded-lg border shadow-sm group transition-all bg-white hover:shadow-md ${!item.productoId ? "border-l-4 border-l-orange-400" : "border-slate-100"}`}>
+                        <div key={idx} className={`flex flex-col text-sm p-3 rounded-lg border shadow-sm group transition-all bg-white hover:shadow-md ${item.tipoItem !== "NORMAL" ? "border-l-4 border-l-orange-400" : "border-slate-100"}`}>
                           <div className="flex justify-between items-start">
                             <div className="flex-1 mr-3">
-                              <p className={`font-semibold line-clamp-2 leading-snug ${!item.productoId ? "text-orange-800" : "text-slate-800"}`}>{item.nombreDisplay}</p>
+                              <div className="flex items-center gap-2 mb-1">
+                                {item.tipoItem === "NUEVO" && <Badge className="bg-purple-100 text-purple-700 border-purple-200 text-[10px] h-5">NUEVO</Badge>}
+                                {item.tipoItem === "AGOTADO" && <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-[10px] h-5">AGOTADO</Badge>}
+                              </div>
+                              <p className={`font-semibold line-clamp-2 leading-snug ${item.tipoItem !== "NORMAL" ? "text-orange-800" : "text-slate-800"}`}>{item.nombreDisplay}</p>
                               <div className="flex items-center gap-2 mt-1.5">
                                 <span className="text-xs font-bold bg-slate-100 px-2 py-0.5 rounded text-slate-700">Cant: {item.cantidad}</span>
                                 {item.productoId && <span className="text-[10px] text-blue-600 font-medium px-1.5 py-0.5 bg-blue-50 rounded">{item.formatoDisplay}</span>}
@@ -501,7 +472,6 @@ export default function NuevaSolicitudPage() {
                             <button onClick={() => eliminarDelCarrito(idx)} className="text-slate-300 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar"><Trash2 className="w-4 h-4" /></button>
                           </div>
                           
-                          {/* MOSTRAR OBSERVACIÓN EN EL CARRITO SI EXISTE */}
                           {item.observacion && (
                             <div className="mt-2 text-xs text-slate-500 bg-slate-50 p-2 rounded border border-slate-100 italic">
                                 &quot;{item.observacion}&quot;
@@ -521,7 +491,6 @@ export default function NuevaSolicitudPage() {
         </div>
       </main>
 
-      {/* FOOTER */}
       <footer className="text-[#CCCCCC]" style={{ backgroundColor: "#222222" }}>
         <div className="container mx-auto px-4 py-12 max-w-6xl">
           <div className="grid md:grid-cols-3 gap-10">
