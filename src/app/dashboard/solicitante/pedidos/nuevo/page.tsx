@@ -4,32 +4,13 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
-import {
-  Search,
-  Plus,
-  ShoppingCart,
-  Trash2,
-  PackagePlus,
-  AlertCircle,
-  ArrowLeft,
-  ChevronRight,
-  LogOut,
-  User,
-  ShoppingBag,
-  MapPin,
-  Mail,
-  Facebook,
-  Linkedin,
-  Loader2,
-  ShieldCheck, 
-  Truck        
-} from "lucide-react";
+import { Search, Plus, ShoppingCart, Trash2, PackagePlus, AlertCircle, ArrowLeft, ChevronRight, LogOut, User, ShoppingBag, MapPin, Mail, Facebook, Linkedin, Loader2, ShieldCheck, Truck } from "lucide-react";
 import Link from "next/link";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 
 import { productosService } from "@/services/productos.service";
 import { solicitudesService } from "@/services/solicitudes.service";
@@ -58,6 +39,7 @@ interface ItemCarrito {
   temporalUnidad?: string;
   temporalTalla?: string;
   observacion?: string;
+  tipoItem: "NORMAL" | "AGOTADO" | "NUEVO";
 }
 
 export default function NuevaSolicitudPage() {
@@ -84,18 +66,16 @@ export default function NuevaSolicitudPage() {
   const [cantidad, setCantidad] = useState(1);
   const [proyecto, setProyecto] = useState("");
   const [observacionesGral, setObservacionesGral] = useState(""); 
-
   const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
     const cargarProductos = async () => {
       try {
-        const data: Producto[] = await productosService.getAll();
+        const data = await productosService.getAll();
         setProductos(data);
         setProductosFiltrados(data);
-      } catch (error) {
-        console.error("Error al cargar productos", error);
+      } catch {
         toast.error("Error al cargar el catálogo de productos");
       } finally {
         setCargandoProductos(false);
@@ -140,18 +120,18 @@ export default function NuevaSolicitudPage() {
     if (carrito.find((item) => item.productoId === producto.id)) {
       return toast.error("Este producto ya está en el carrito");
     }
+
     const item: ItemCarrito = {
       productoId: producto.id,
       nombreDisplay: producto.nombreProducto,
       codigoDisplay: producto.codigoProducto,
       formatoDisplay: producto.formato,
       cantidad: cantidad,
+      tipoItem: "NORMAL"
     };
 
-    const tieneEspeciales = carrito.some(i => i.productoId === null || (i.productoId !== null && productos.find(p => p.id === i.productoId)?.cantidad === 0));
-    
-    if (tieneEspeciales) {
-      toast.warning("Se limpió tu carrito especial para poder agregar materiales normales de bodega.", { duration: 5000 });
+    if (carrito.length > 0 && carrito[0].tipoItem !== "NORMAL") {
+      toast.warning(`Se limpió el carrito porque no puedes mezclar NORMAL con ${carrito[0].tipoItem}.`, { duration: 5000 });
       setCarrito([item]);
     } else {
       setCarrito([...carrito, item]);
@@ -164,37 +144,29 @@ export default function NuevaSolicitudPage() {
     if (!manualItem.nombre) return toast.error("El nombre del material es obligatorio");
     if (!manualItem.unidad) return toast.error("Debes especificar una unidad");
 
-    const isCatalogItem = manualItem.productoId !== null;
+    const isAgotado = manualItem.productoId !== null;
+    const tipoItem = isAgotado ? "AGOTADO" : "NUEVO";
 
     const item: ItemCarrito = {
       productoId: manualItem.productoId,
-      nombreDisplay: isCatalogItem ? manualItem.nombre : `(NUEVO) ${manualItem.nombre} [${manualItem.unidad}]`,
-      codigoDisplay: manualItem.codigo || (isCatalogItem ? "" : "S/C"),
+      nombreDisplay: manualItem.nombre,
+      codigoDisplay: manualItem.codigo || (isAgotado ? "" : "S/C"),
       formatoDisplay: manualItem.unidad,
       cantidad: cantidad,
-      temporalNombre: isCatalogItem ? undefined : manualItem.nombre,
-      temporalCodigo: isCatalogItem ? undefined : manualItem.codigo,
-      temporalUnidad: isCatalogItem ? undefined : manualItem.unidad,
-      temporalTalla: isCatalogItem ? undefined : manualItem.talla,
+      temporalNombre: isAgotado ? undefined : manualItem.nombre,
+      temporalCodigo: isAgotado ? undefined : manualItem.codigo,
+      temporalUnidad: isAgotado ? undefined : manualItem.unidad,
+      temporalTalla: isAgotado ? undefined : manualItem.talla,
       observacion: manualItem.observacion,
+      tipoItem: tipoItem
     };
 
-    const tieneCatalogoNormal = carrito.some(i => i.productoId !== null && productos.find(p => p.id === i.productoId && p.cantidad > 0));
-    const tieneEspecial = carrito.some(i => i.productoId === null);
-    const tieneAgotado = carrito.some(i => i.productoId !== null && productos.find(p => p.id === i.productoId && p.cantidad <= 0));
-
-    if (tieneCatalogoNormal) {
-      toast.warning("Se limpió tu carrito normal para iniciar un pedido especial.", { duration: 5000 });
-      setCarrito([item]);
-    } else if (!isCatalogItem && tieneAgotado) {
-      toast.warning("No se pueden mezclar materiales Totalmente Nuevos con Agotados. Se limpió el carrito.", { duration: 5000 });
-      setCarrito([item]);
-    } else if (isCatalogItem && tieneEspecial) {
-      toast.warning("No se pueden mezclar materiales Agotados con Totalmente Nuevos. Se limpió el carrito.", { duration: 5000 });
+    if (carrito.length > 0 && carrito[0].tipoItem !== tipoItem) {
+      toast.warning(`Se limpió el carrito porque no puedes mezclar ${tipoItem} con ${carrito[0].tipoItem}.`, { duration: 5000 });
       setCarrito([item]);
     } else {
       setCarrito([...carrito, item]);
-      toast.success(isCatalogItem ? "Producto sin stock agregado" : "Ítem manual agregado");
+      toast.success(`Ítem ${tipoItem} agregado`);
     }
     
     setManualItem({ productoId: null, nombre: "", codigo: "", unidad: "", talla: "", observacion: "" });
@@ -211,19 +183,10 @@ export default function NuevaSolicitudPage() {
     if (!proyecto) return toast.error("Falta ingresar el Proyecto / Obra");
     if (carrito.length === 0) return toast.error("El carrito está vacío");
 
-    let tipoPedido = "NORMAL";
-    const tieneNormal = carrito.some(i => productos.find(p => p.id === i.productoId && p.cantidad > 0));
-    const tieneAgotado = carrito.some(i => productos.find(p => p.id === i.productoId && p.cantidad <= 0));
-    const tieneNuevo = carrito.some(i => i.productoId === null);
-
-    if (tieneNormal && (tieneAgotado || tieneNuevo)) return toast.error("No puedes mezclar materiales de stock normal con especiales.");
-    if (tieneAgotado && tieneNuevo) return toast.error("No puedes mezclar material Agotado con material Totalmente Nuevo.");
-
-    if (tieneAgotado) tipoPedido = "AGOTADO";
-    if (tieneNuevo) tipoPedido = "NUEVO";
+    const tipoPedido = carrito[0].tipoItem;
     
     if (tipoPedido !== "NORMAL" && !observacionesGral.trim()) {
-        return toast.error("Para pedidos especiales debes ingresar una Justificación Adicional en el cajón rojo.");
+        return toast.error("Para pedidos especiales debes ingresar una Justificación Adicional.");
     }
 
     setEnviando(true);
@@ -245,20 +208,16 @@ export default function NuevaSolicitudPage() {
         detalles: detallesSolicitud,
       });
 
-      toast.success("¡Solicitud enviada! Se generará la OC automáticamente.");
+      toast.success("¡Solicitud enviada exitosamente!");
       setProyecto("");
       setObservacionesGral("");
       setCarrito([]);
       window.scrollTo({ top: 0, behavior: "smooth" });
 
-    // SIN 'ANY': Hacemos un casting estricto del error para TypeScript
-    } catch (error) {
-      const axiosError = error as { response?: { status?: number; data?: { error?: string } | string } };
-      
-      if (axiosError.response?.status === 400 && axiosError.response.data) {
-        const errorData = axiosError.response.data;
-        const errorMsg = typeof errorData === 'string' ? errorData : errorData.error;
-        
+    } catch (error: unknown) {
+      const err = error as { response?: { status?: number; data?: { error?: string } | string } };
+      if (err.response?.status === 400 && err.response.data) {
+        const errorMsg = typeof err.response.data === 'string' ? err.response.data : err.response.data.error;
         if (errorMsg) {
           toast.error(errorMsg, { duration: 6000 });
           setCarrito([]);
@@ -276,7 +235,7 @@ export default function NuevaSolicitudPage() {
     router.push("/login");
   };
 
-  const requiereJustificacion = carrito.some(i => i.productoId === null || (i.productoId !== null && productos.find(p => p.id === i.productoId && p.cantidad <= 0)));
+  const requiereJustificacion = carrito.length > 0 && carrito[0].tipoItem !== "NORMAL";
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 font-sans selection:bg-red-500/20">
@@ -312,8 +271,8 @@ export default function NuevaSolicitudPage() {
                       </Link>
                     )}
                     {user?.rol === "Bodeguero" && (
-                      <Link href="/dashboard/bodeguero/pedidos" className="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-[#D32F2F] bg-red-50 hover:bg-red-100 rounded-lg transition-colors mb-1">
-                        <Truck className="w-4 h-4" /> Panel Bodega
+                      <Link href="/dashboard/bodeguero" className="flex items-center gap-3 px-3 py-2.5 text-sm font-bold text-[#D32F2F] bg-red-50 hover:bg-red-100 rounded-lg transition-colors mb-1">
+                        <Truck className="w-4 h-4" /> Portal Bodega
                       </Link>
                     )}
                     <Link href="/dashboard/solicitante" className="flex items-center gap-3 px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
@@ -343,7 +302,7 @@ export default function NuevaSolicitudPage() {
             </Link>
             <div>
               <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Crear Nueva Solicitud</h1>
-              <p className="text-slate-500 mt-1">Completa los datos de la obra y selecciona los materiales de bodega.</p>
+              <p className="text-slate-500 mt-1">Completa los datos de la obra y selecciona los materiales.</p>
             </div>
           </div>
 
@@ -365,7 +324,7 @@ export default function NuevaSolicitudPage() {
                     <div className="space-y-6">
                       <div className="relative group">
                         <Search className="absolute left-3 top-3.5 w-5 h-5 text-slate-400 group-focus-within:text-[#D32F2F] transition-colors" />
-                        <Input placeholder="Buscar por código o nombre (ej: HYFLEX, Disco)..." className="pl-10 h-12 text-base border-slate-200 focus-visible:ring-[#D32F2F]" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} autoFocus />
+                        <Input placeholder="Buscar por código o nombre..." className="pl-10 h-12 text-base border-slate-200 focus-visible:ring-[#D32F2F]" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} autoFocus />
                       </div>
                       
                       <div className="h-[450px] overflow-y-auto border rounded-xl bg-slate-50/50 pr-2 custom-scrollbar">
@@ -426,32 +385,15 @@ export default function NuevaSolicitudPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
                         <div className="space-y-2 md:col-span-2">
                             <Label className="text-orange-900 font-semibold">Nombre del Material *</Label>
-                            <Input 
-                              placeholder="Ej: Disco de corte especial..." 
-                              className="bg-white border-orange-200 focus-visible:ring-orange-500 h-11" 
-                              value={manualItem.nombre} 
-                              onChange={(e) => setManualItem({ ...manualItem, nombre: e.target.value })} 
-                              autoFocus 
-                            />
+                            <Input placeholder="Ej: Disco de corte especial..." className="bg-white border-orange-200 focus-visible:ring-orange-500 h-11" value={manualItem.nombre} onChange={(e) => setManualItem({ ...manualItem, nombre: e.target.value })} autoFocus />
                         </div>
-                        
                         <div className="space-y-2">
                           <Label className="text-orange-900">Marca / Modelo / Código</Label>
-                          <Input 
-                            placeholder="Ej: Bosch..." 
-                            className="bg-white border-orange-200 focus-visible:ring-orange-500" 
-                            value={manualItem.codigo} 
-                            onChange={(e) => setManualItem({ ...manualItem, codigo: e.target.value })} 
-                          />
+                          <Input placeholder="Ej: Bosch..." className="bg-white border-orange-200 focus-visible:ring-orange-500" value={manualItem.codigo} onChange={(e) => setManualItem({ ...manualItem, codigo: e.target.value })} />
                         </div>
-                        
                         <div className="space-y-2">
                             <Label className="text-orange-900">Unidad *</Label>
-                            <select 
-                              className="flex h-10 w-full rounded-md border border-orange-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500" 
-                              value={manualItem.unidad} 
-                              onChange={(e) => setManualItem({ ...manualItem, unidad: e.target.value })}
-                            >
+                            <select className="flex h-10 w-full rounded-md border border-orange-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500" value={manualItem.unidad} onChange={(e) => setManualItem({ ...manualItem, unidad: e.target.value })}>
                                 <option value="">Seleccione...</option>
                                 <option value="UNIDAD">Unidad (C/U)</option>
                                 <option value="METRO">Metros (mts)</option>
@@ -464,36 +406,17 @@ export default function NuevaSolicitudPage() {
                                 )}
                             </select>
                         </div>
-
                         <div className="space-y-2 md:col-span-2">
                             <Label className="text-orange-900">Observación Específica</Label>
-                            <Input 
-                                placeholder="Ej: Únicamente de esta medida..." 
-                                className="bg-white border-orange-200 focus-visible:ring-orange-500" 
-                                value={manualItem.observacion} 
-                                onChange={(e) => setManualItem({ ...manualItem, observacion: e.target.value })} 
-                            />
+                            <Input placeholder="Ej: Únicamente de esta medida..." className="bg-white border-orange-200 focus-visible:ring-orange-500" value={manualItem.observacion} onChange={(e) => setManualItem({ ...manualItem, observacion: e.target.value })} />
                         </div>
-
                         <div className="space-y-2">
                           <Label className="text-orange-900">Talla / Medida</Label>
-                          <Input 
-                            placeholder="Ej: XL, 10mm..." 
-                            className="bg-white border-orange-200 focus-visible:ring-orange-500" 
-                            value={manualItem.talla} 
-                            onChange={(e) => setManualItem({ ...manualItem, talla: e.target.value })} 
-                          />
+                          <Input placeholder="Ej: XL, 10mm..." className="bg-white border-orange-200 focus-visible:ring-orange-500" value={manualItem.talla} onChange={(e) => setManualItem({ ...manualItem, talla: e.target.value })} />
                         </div>
-                        
                         <div className="space-y-2">
                           <Label className="text-orange-900 font-bold">Cantidad *</Label>
-                          <Input 
-                            type="number" 
-                            min="1" 
-                            className="bg-white border-orange-200 focus-visible:ring-orange-500 font-bold" 
-                            value={cantidad} 
-                            onChange={(e) => setCantidad(parseInt(e.target.value) || 1)} 
-                          />
+                          <Input type="number" min="1" className="bg-white border-orange-200 focus-visible:ring-orange-500 font-bold" value={cantidad} onChange={(e) => setCantidad(parseInt(e.target.value) || 1)} />
                         </div>
                       </div>
                       
@@ -522,12 +445,7 @@ export default function NuevaSolicitudPage() {
                     {requiereJustificacion && (
                       <div className="space-y-2 mt-4 animate-in fade-in zoom-in duration-300">
                         <Label className="text-xs font-bold text-orange-600 uppercase tracking-wider">Justificación Pedido Especial *</Label>
-                        <textarea 
-                          placeholder="Explica por qué solicitas materiales fuera de stock o catálogo..." 
-                          value={observacionesGral} 
-                          onChange={(e) => setObservacionesGral(e.target.value)} 
-                          className="w-full min-h-[80px] text-sm border border-orange-200 bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-md p-3 transition-all" 
-                        />
+                        <textarea placeholder="Explica por qué solicitas estos materiales..." value={observacionesGral} onChange={(e) => setObservacionesGral(e.target.value)} className="w-full min-h-[80px] text-sm border border-orange-200 bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-md p-3 transition-all" />
                       </div>
                     )}
                   </div>
@@ -537,10 +455,14 @@ export default function NuevaSolicitudPage() {
                       <div className="h-full flex flex-col items-center justify-center text-slate-400 text-sm border-2 border-dashed border-slate-200 rounded-xl p-8 bg-white/50"><ShoppingBag className="w-10 h-10 opacity-10 mb-3" /><p>El carrito está vacío</p></div>
                     ) : (
                       carrito.map((item, idx) => (
-                        <div key={idx} className={`flex flex-col text-sm p-3 rounded-lg border shadow-sm group transition-all bg-white hover:shadow-md ${!item.productoId ? "border-l-4 border-l-orange-400" : "border-slate-100"}`}>
+                        <div key={idx} className={`flex flex-col text-sm p-3 rounded-lg border shadow-sm group transition-all bg-white hover:shadow-md ${item.tipoItem !== "NORMAL" ? "border-l-4 border-l-orange-400" : "border-slate-100"}`}>
                           <div className="flex justify-between items-start">
                             <div className="flex-1 mr-3">
-                              <p className={`font-semibold line-clamp-2 leading-snug ${!item.productoId ? "text-orange-800" : "text-slate-800"}`}>{item.nombreDisplay}</p>
+                              <div className="flex items-center gap-2 mb-1">
+                                {item.tipoItem === "NUEVO" && <Badge className="bg-purple-100 text-purple-700 border-purple-200 text-[10px] h-5">NUEVO</Badge>}
+                                {item.tipoItem === "AGOTADO" && <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-[10px] h-5">AGOTADO</Badge>}
+                              </div>
+                              <p className={`font-semibold line-clamp-2 leading-snug ${item.tipoItem !== "NORMAL" ? "text-orange-800" : "text-slate-800"}`}>{item.nombreDisplay}</p>
                               <div className="flex items-center gap-2 mt-1.5">
                                 <span className="text-xs font-bold bg-slate-100 px-2 py-0.5 rounded text-slate-700">Cant: {item.cantidad}</span>
                                 {item.productoId && <span className="text-[10px] text-blue-600 font-medium px-1.5 py-0.5 bg-blue-50 rounded">{item.formatoDisplay}</span>}
