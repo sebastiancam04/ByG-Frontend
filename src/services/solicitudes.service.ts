@@ -3,13 +3,15 @@ import {
   SolicitudResumen,
   SolicitudDetalle,
   UpdateEstadoDto,
-  CreateSolicitudDto // ✅ Importamos la nueva interfaz
+  CreateSolicitudDto, // ✅ Importamos la nueva interfaz
 } from "@/types/solicitudes";
 
 export const solicitudesService = {
   // 1. Panel Bodega
   getAllBodega: async (): Promise<SolicitudResumen[]> => {
-    const { data } = await api.get<SolicitudResumen[]>("/solicitudes/bodega/todas");
+    const { data } = await api.get<SolicitudResumen[]>(
+      "/solicitudes/bodega/todas",
+    );
     return data;
   },
 
@@ -29,6 +31,12 @@ export const solicitudesService = {
   // ✅ CORREGIDO: Reemplazamos 'any' por 'CreateSolicitudDto'
   create: async (payload: CreateSolicitudDto) => {
     const { data } = await api.post("/solicitudes", payload);
+    return data;
+  },
+  getEspeciales: async (): Promise<SolicitudResumen[]> => {
+    const { data } = await api.get<SolicitudResumen[]>(
+      "/solicitudes/bodega/especiales",
+    );
     return data;
   },
 };

@@ -1,11 +1,11 @@
 // ✅ Conectado: Exactamente igual al Enum del Backend
-export type EstadoSolicitud = 
-  | 'Pendiente' 
-  | 'EnRevision' 
-  | 'AprobadaBodega' 
-  | 'RequiereCompra' 
-  | 'Finalizada' 
-  | 'Rechazada';
+export type EstadoSolicitud =
+  | "Pendiente"
+  | "EnRevision"
+  | "AprobadaBodega"
+  | "RequiereCompra"
+  | "Finalizada"
+  | "Rechazada";
 
 export interface SolicitudResumen {
   id: number;
@@ -16,6 +16,7 @@ export interface SolicitudResumen {
   estado: EstadoSolicitud;
   fechaCreacion: string;
   totalItems: number;
+  tipoPedido?: string;
 }
 
 export interface DetalleItem {
@@ -34,7 +35,7 @@ export interface SolicitudDetalle extends SolicitudResumen {
 }
 
 export interface UpdateEstadoDto {
-  nuevoEstado: string; 
+  nuevoEstado: string;
 }
 
 // 👇👇👇 AGREGAR ESTO AL FINAL 👇👇👇
@@ -51,5 +52,7 @@ export interface CreateDetalleDto {
 
 export interface CreateSolicitudDto {
   proyecto: string;
+  observaciones?: string;
+  tipoPedido: string; // "NORMAL" | "NUEVO" | "AGOTADO"
   detalles: CreateDetalleDto[];
 }
